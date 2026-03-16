@@ -1,8 +1,5 @@
 # Proyecto-Final-Econometria-Financiera-A10452078
 Proyecto Final Econometría Financiera | Cummins Inc. (CMI) | Regresión Lineal, ARIMA-GARCH, Data Panel | Mariann Antonelli Morales Tobias | A01452078
-# Proyecto Final — Econometría Financiera
-**Mariann Antonelli Morales Tobias | A01452078**  
-Dr. Raymundo Díaz Robles · ITESM · Marzo 2026
 
 ---
 
