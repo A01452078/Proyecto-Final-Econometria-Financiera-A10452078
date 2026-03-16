@@ -1,0 +1,231 @@
+---
+title: "Tarea 7"
+output: html_document
+date: "2026-02-22"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+#### TAREA 7 MARIANN ANTONELLI MORALES TOBIAS A01452078
+
+### MODELO CMI VS CAT, DE, PCAR, NUE Y PH
+
+## Objetivo
+El objetivo del modelo es analizar cómo los rendimientos diarios de Cummins Inc. (CMI) se relacionan con los movimientos simultáneos de empresas que operan en sectores complementarios dentro de su ecosistema industrial. El propósito es identificar factores comunes asociados al ciclo manufacturero, la demanda de camiones y maquinaria pesada, la producción de acero y la actividad industrial general, todos ellos elementos que influyen directa o indirectamente en el desempeño financiero de Cummins a lo largo del periodo 18 de febrero de 2024 a 18 de febrero de 2026.
+Los datos utilizados fueron obtenidos de Yahoo Finance, empleando la función getSymbols() de la librería quantmod en R para descargar las series de precios ajustados de todas las empresas analizadas.
+En este análisis se emplea a CMI como variable dependiente debido a su papel como proveedor estratégico de motores diésel, trenes motrices y soluciones energéticas para aplicaciones comerciales, agrícolas, de construcción y de infraestructura. Su comportamiento bursátil suele ser altamente sensible a cambios en la actividad económica real: producción manufacturera, transporte de carga, inversión en maquinaria y variaciones en los precios de insumos industriales.
+Las variables independientes seleccionadas representan distintos componentes relevantes del entorno operativo de Cummins:
+• OEMs de maquinaria pesada y equipo industrial: Deere & Company (DE), Caterpillar Inc. (CAT) y PACCAR Inc. (PCAR).
+Estas empresas capturan la demanda final de equipo agrícola, maquinaria de construcción y camiones de carga, segmentos en los que Cummins participa como proveedor de motores y sistemas de potencia. Sus rendimientos reflejan expectativas sobre nuevas órdenes de maquinaria, niveles de inversión en flotas, gasto en infraestructura y dinámica industrial pesada.
+• Productor de acero estructural: Nucor Corporation (NUE).
+Como uno de los mayores productores de acero en Estados Unidos, NUE representa la evolución de los precios y disponibilidad de insumos esenciales para la fabricación de maquinaria pesada y vehículos comerciales. Sus movimientos bursátiles incorporan presiones de costos, cambios en la demanda industrial y señales de actividad económica.
+• Equipamiento industrial avanzado Parker-Hannifin Corporation (PH).
+Parker Hannifin participa en sistemas de control industrial, hidráulica y componentes de ingeniería avanzada utilizados en manufactura, transporte y maquinaria pesada. Sus rendimientos reflejan la inversión industrial y los ciclos de producción donde Cummins también está involucrado.
+En conjunto, estas cinco variables independientes permiten modelar de manera coherente el ecosistema donde opera Cummins: fabricantes de equipo original (OEMs) que representan la demanda final, productores de acero que capturan la dinámica de insumos industriales y un líder en equipamiento avanzado que refleja la inversión manufacturera. La selección combina relevancia económica con diversidad sectorial, evitando redundancias severas y reduciendo riesgos de multicolinealidad, a la vez que mantiene un marco sólido para explicar las variaciones en los rendimientos de CMI.
+
+## Fundamento Tiempo
+La elección de una frecuencia diaria responde al propósito de capturar las dinámicas generales de co-movimiento entre empresas que participan en distintos segmentos del ecosistema industrial de Cummins. En industrias como la de maquinaria pesada, acero estructural y equipamiento industrial avanzado, los cambios en actividad manufacturera, demanda de camiones y precios de insumos suelen reflejarse de manera más clara en variaciones diarias que en horizontes intradía. El uso de precios ajustados diarios permite evitar el ruido microestructural propio de frecuencias más altas y enfocar el análisis en relaciones económicas significativas y persistentes.
+El intervalo temporal de dos años completos, del 18 de febrero de 2024 al 18 de febrero de 2026, se seleccionó para abarcar un ciclo industrial representativo, suficientemente largo para capturar shocks de demanda, variaciones en actividad manufacturera y periodos de ajustes en inversión en maquinaria pesada. Al mismo tiempo, esta ventana mantiene un entorno macroeconómico relativamente coherente, evitando mezclar periodos demasiado distantes que pudieran estar afectados por regímenes económicos distintos o eventos extraordinarios no comparables.
+De esta manera, el rango temporal utilizado ofrece un equilibrio adecuado entre estabilidad estructural del mercado, suficiente número de observaciones para estimar modelos estadísticos confiables y relevancia económica para comprender la interacción entre Cummins y las empresas de su cadena de valor industrial.
+
+## Construcción de los modelos 
+En esta etapa se cargan las librerías necesarias para la obtención, preparación y análisis de datos financieros. quantmod permite descargar series históricas desde Yahoo Finance mediante getSymbols(). Por su parte, dplyr se utiliza para transformar y organizar los datos de forma eficiente. La librería ggplot2 y ggcorrplot facilita la creación de gráficos que apoyan la interpretación visual de las variables. Finalmente, broom convierte los resultados de modelos estadísticos en data frames ordenados, lo que simplifica su análisis y presentación.
+```{r}
+library(quantmod)
+library(dplyr)
+library(ggplot2)
+library(ggcorrplot)
+library(broom)
+```
+
+En este paso se descargan las series históricas de precios desde Yahoo Finance utilizando la función getSymbols() del paquete quantmod. Se especifican los tickers de interés: CMI, DE, CAT, NUE, PCAR y PH, y el rango de fechas, en este caso del 18 de Febrero de 2024 al 18 de Febrero de 2026, creando las variables start_date y end_date, lo que permite obtener automáticamente los datos financieros necesarios para el análisis.
+```{r}
+tickers <- c("CMI", "DE", "CAT", "NUE", "PCAR", "PH")
+
+start_date <- "2024-02-18"
+end_date <- "2026-02-18"
+
+getSymbols(tickers, from = start_date, to = end_date, src  = "yahoo", auto.assign = TRUE)
+```
+
+En este paso se construye una lista que contiene, para cada ticker, únicamente su serie de precios Adjusted, extraída mediante la función Ad(get(tkr)), la cual recupera el objeto descargado y selecciona la columna ajustada por dividendos y splits. Posteriormente, todas estas series se integran en un solo objeto temporal usando do.call(merge), función que solo conserva fechas comunes entre todas las series, alineando las observaciones por fecha y generando una base consolidada. Luego, se asignan nombres de columna correspondientes a cada ticker para facilitar la lectura y el análisis. Finalmente, head(precios_adj) permite visualizar las primeras filas del conjunto unificado, mientras que nrow(precios_adj) indica el número total de observaciones disponibles en el periodo.
+```{r}
+lista_precios_adj <- lapply(tickers, function(tkr) { Ad(get(tkr))})
+
+precios_adj <- do.call(merge, lista_precios_adj)
+colnames(precios_adj) <- tickers
+
+head(precios_adj)
+
+nrow(precios_adj)
+```
+
+En este paso se calculan los rendimientos logarítmicos a partir de los precios Adjusted. Primero, se aplica log(precios_adj) para transformar las series de precios, y luego diff() calcula la variación logarítmica entre un día y el siguiente. Este tipo de rendimiento es útil porque estabiliza la varianza y facilita el tratamiento estadístico. Posteriormente, na.omit() elimina la primera observación perdida generada por el cálculo de diferencias. Finalmente, head(rend_log) muestra las primeras filas del objeto resultante, mientras que nrow(rend_log) permite verificar que el número de rendimientos obtenidos corresponde al total de días disponibles menos uno.
+```{r}
+rend_log <- diff(log(precios_adj))
+rend_log <- na.omit(rend_log)
+
+head(rend_log)
+nrow(rend_log)
+```
+
+En este bloque se transforma el objeto rend_log, que está en formato xts, típico para series de tiempo financieras, en un data frame estándar, más flexible para análisis econométricos y visualizaciones. Para ello se crea la variable data_model100 que almacena una columna con todas las fechas de las series, así como una columna con los rendimientos logarítmicos de cada ticker (CMI, CAT, DE, PCAR, NUE y PH). 
+```{r}
+data_model100 <- data.frame(date = index(rend_log), coredata(rend_log))
+```
+
+## Matriz de Correlación
+En este paso se construye la matriz de correlaciones de los rendimientos de las acciones involucradas: CMI, CAT, DE, PCAR, NUE y PH, y se guarda en la variable cor_matrix, excluyendo la fecha para evitar errores y permitir un análisis estadístico adecuado.
+```{r}
+cor_matrix <- cor(dplyr::select(data_model100, -date))
+cor_matrix
+```
+Interpretación: La matriz de correlación calculada a partir de los rendimientos logarítmicos de las acciones CMI, DE, CAT, NUE, PCAR y PH muestra relaciones lineales positivas entre todas las variables analizadas. Esto indica que los rendimientos de estos activos se mueven, en promedio, en la misma dirección, lo cual es consistente con su pertenencia a sectores industriales y manufactureros con factores económicos comunes.
+Los pares CAT–CMI (0.6629), CAT–PH (0.6389) y CMI–PH (0.6289) presentan los comovimientos más fuertes, lo cual es relevante para el diagnóstico de dependencia entre variables.
+
+Con la función ggcorrplot se grafica un mapa de calor de la correlación de todas las variables del modelo.
+```{r}
+ggcorrplot(cor_matrix)
+```
+Interpretación: Analizando el mapa de calor, las variables que muestran mayor correlación con los rendimientos de CMI son CAT (0.6629), PH (0.6289) y PCAR (0.5926), por lo que se espera que sean las predictores más relevantes y potencialmente significativas dentro del modelo de regresión. Por otro lado, NUE (0.4466) y DE (0.4287) presentan correlaciones moderadas, lo que sugiere que podrían aportar información adicional pero con menor peso. En conjunto, la matriz sugiere que el modelo con CMI como variable dependiente es viable y que los predictores clave probablemente serán las acciones más estrechamente vinculadas al sector de maquinaria y equipamiento pesado.
+
+## Modelos de Regresión Lineal Simple
+
+# CMI vs CAT
+En este paso se estima un modelo de regresión lineal simple donde los rendimientos de CMI actúan como variable dependiente y los rendimientos de CAT como regresor principal. El modelo se ajusta mediante la función lm() y se almacena en el objeto modelo_CAT.
+```{r}
+modelo_CAT  <- lm(CMI ~ CAT, data = data_model100)
+summary (modelo_CAT)
+```
+Interpretación: El modelo confirma que los rendimientos de CAT son un determinante significativo del comportamiento de CMI, con un coeficiente positivo y elevado (β₁ = 0.6501, p < 2e-16). Esto indica que los movimientos de CAT se reflejan de manera importante en los rendimientos de CMI, evidenciando una fuerte relación sectorial. Por cada aumento de 1 unidad en el rendimiento de CAT, el rendimiento de CMI aumenta en 0.6501 unidades. 
+El ajuste del modelo es considerable para datos financieros diarios, con un R² de 0.4396, lo que implica que CAT explica cerca del 44% de la variabilidad en CMI. 
+El estadístico F (389.8, p < 2.2e-16) confirma la significancia global del modelo, mientras que el intercepto no es estadísticamente relevante. En conjunto, estos resultados muestran que CAT es un predictor sólido y consistente del rendimiento de CMI.
+
+En este paso se visualiza la relación lineal entre los rendimientos de CAT y CMI mediante un diagrama de dispersión. La función plot genera un gráfico de dispersión que coloca los rendimientos de CAT en el eje X y los de CMI en el eje Y, permitiendo observar si existe un patrón lineal entre ambas variables. Posteriormente, se añade la recta estimada por el modelo de regresión, con la función abline.
+```{r}
+modelo_CAT <- lm(CMI ~ CAT, data = data_model100)
+
+plot(data_model100$CAT, data_model100$CMI, main = "Rendimientos diarios CAT vs CMI", xlab = "CAT", ylab = "CMI")
+
+abline(modelo_CAT, col = "green", lwd = 2)
+```
+Interpretación: El diagrama de dispersión muestra la relación entre los rendimientos diarios de CAT (eje X) y los rendimientos diarios de CMI (eje Y). Visualmente, los puntos se distribuyen siguiendo una tendencia ascendente, lo que indica que existe una relación positiva entre ambas variables: cuando los rendimientos de CAT aumentan, los rendimientos de CMI tienden también a incrementarse. 
+La línea verde corresponde a la recta de regresión ajustada. Su pendiente positiva coincide con el coeficiente estimado en el modelo (β₁ = 0.6501), lo que confirma que CMI reacciona en la misma dirección que CAT, y aproximadamente con un 65% de su magnitud. La recta atraviesa densamente la nube de puntos, lo cual es consistente con el nivel de ajuste del modelo (R² = 0.4396), indicando que existe una relación lineal apreciable entre ambas series.
+Además, la dispersión de los puntos alrededor de la recta es relativamente moderada: aunque existe variabilidad (natural en datos financieros de alta frecuencia), la mayoría de las observaciones se concentran cerca de la línea. Esto refuerza la conclusión de que CAT es un predictor relevante del comportamiento de CMI y que la dependencia observada visualmente coincide con los resultados econométricos obtenidos.
+
+# CMI vs DE
+En este paso se estima un modelo de regresión lineal simple donde los rendimientos de CMI actúan como variable dependiente y los rendimientos de DE como regresor principal. El modelo se ajusta mediante la función lm() y se almacena en el objeto modelo_DE.
+```{r}
+modelo_DE  <- lm(CMI ~ DE, data = data_model100)
+summary (modelo_DE)
+```
+Interpretación: El modelo confirma que los rendimientos de DE son un determinante significativo del comportamiento de CMI, con un coeficiente positivo y estadísticamente robusto (β₁ = 0.4814625, p < 2e-16). Esto indica que los movimientos en los rendimientos de DE se transmiten de manera importante hacia los rendimientos de CMI, reflejando la relación sectorial entre ambas empresas. En términos prácticos, por cada aumento de 1 unidad en el rendimiento de DE, el rendimiento de CMI aumenta en aproximadamente 0.4815 unidades, lo que muestra una respuesta positiva, aunque de menor magnitud comparada con la de CAT.
+El ajuste del modelo es moderado para datos financieros diarios, con un R² = 0.1838, lo que implica que DE explica cerca del 18.38% de la variabilidad en los rendimientos de CMI. Aunque este nivel de explicación es menor que el observado con CAT, sigue siendo relevante considerando la alta volatilidad de las series de tiempo financieras. El estadístico F (111.9, p < 2.2e-16) confirma la significancia global del modelo, evidenciando que la relación estimada no ocurre por azar. Por su parte, el intercepto no es estadísticamente significativo (p = 0.111), lo que indica que, cuando DE no presenta variación, el rendimiento esperado de CMI no difiere de cero.
+En conjunto, estos resultados muestran que DE es un predictor significativo y consistente del rendimiento de CMI, aunque con un poder explicativo menor en comparación con CAT. Aun así, su coeficiente positivo y altamente significativo confirma que ambas acciones comparten dinámicas sectoriales relevantes.
+
+En este paso se visualiza la relación lineal entre los rendimientos de DE y CMI mediante un diagrama de dispersión. La función plot genera un gráfico de dispersión que coloca los rendimientos de DE en el eje X y los de CMI en el eje Y, permitiendo observar si existe un patrón lineal entre ambas variables. Posteriormente, se añade la recta estimada por el modelo de regresión, con la función abline.
+```{r}
+modelo_DE <- lm(CMI ~ DE, data = data_model100)
+
+plot(data_model100$DE, data_model100$CMI, main = "Rendimientos diarios DE vs CMI", xlab = "DE", ylab = "CMI")
+
+abline(modelo_DE, col = "green", lwd = 2)
+```
+Interpretación: El diagrama de dispersión muestra la relación entre los rendimientos diarios de DE (eje X) y los rendimientos diarios de CMI (eje Y). Visualmente, los puntos presentan una tendencia ascendente, lo que indica que existe una relación positiva entre ambas variables: cuando los rendimientos de DE aumentan, los rendimientos de CMI tienden también a incrementarse.
+La línea verde corresponde a la recta de regresión ajustada. Su pendiente positiva coincide con el coeficiente estimado en el modelo (β₁ = 0.4815), lo que confirma que CMI reacciona en la misma dirección que DE, aunque con una magnitud más moderada: aproximadamente un 48% del movimiento de DE se refleja en CMI. Esta inclinación positiva valida visualmente la relación detectada estadísticamente.
+En cuanto al ajuste visual, la recta atraviesa una región donde la concentración de puntos es notable, lo cual es coherente con el nivel de ajuste obtenido en el modelo (R² = 0.1838). Aunque la nube es más dispersa que en el caso de CAT, se aprecia un patrón lineal claro que explica parte relevante de la variación conjunta entre ambas series.
+Finalmente, la dispersión alrededor de la recta es moderada, y aunque existe variabilidad asociada a la naturaleza ruidosa de los rendimientos financieros diarios, el gráfico muestra que la relación positiva entre DE y CMI es consistente. Esto refuerza la conclusión econométrica de que DE es un predictor significativo del rendimiento de CMI, tal como lo demuestran los resultados del modelo.
+
+# CMI vs PCAR
+En este paso se estima un modelo de regresión lineal simple donde los rendimientos de CMI actúan como variable dependiente y los rendimientos de PCAR como regresor principal. El modelo se ajusta mediante la función lm() y se almacena en el objeto modelo_PCAR.
+```{r}
+modelo_PCAR  <- lm(CMI ~ PCAR, data = data_model100)
+summary (modelo_PCAR)
+```
+Interpretación: El modelo confirma que los rendimientos de PCAR son un determinante significativo del comportamiento de CMI, con un coeficiente positivo y elevado (β₁ = 0.6289889, p < 2e-16). Esto indica que los movimientos en los rendimientos de PCAR se reflejan de manera importante en los rendimientos de CMI, evidenciando una relación sectorial sólida entre ambas compañías. En términos prácticos, por cada incremento de 1 unidad en el rendimiento de PCAR, el rendimiento de CMI aumenta en aproximadamente 0.6290 unidades, lo que muestra una reacción fuerte y comparable en magnitud a la observada con CAT.
+El ajuste del modelo es considerable para datos financieros diarios: el R² = 0.3512 implica que PCAR explica cerca del 35.12% de la variabilidad en los rendimientos de CMI. Aunque este valor es menor al observado para CAT, sigue siendo relativamente alto para series de tiempo de alta frecuencia, indicando una relación lineal relevante entre ambas acciones. El estadístico F (269.1, p < 2.2e-16) confirma la significancia global del modelo, mostrando que la relación estimada no es producto del azar.
+A diferencia de los modelos anteriores, el intercepto resulta estadísticamente significativo (β₀ = 0.0014446, p = 0.0321), lo que sugiere que, incluso cuando PCAR no presenta variaciones en sus rendimientos, CMI tiende a mostrar un rendimiento promedio ligeramente positivo. Sin embargo, este efecto es pequeño en magnitud.
+En conjunto, estos resultados muestran que PCAR es un predictor fuerte, significativo y consistente del rendimiento de CMI, con un impacto positivo claro y una capacidad explicativa relevante. La magnitud del coeficiente y el nivel de ajuste del modelo confirman que ambas acciones comparten dinámicas financieras importantes dentro del sector industrial.
+
+En este paso se visualiza la relación lineal entre los rendimientos de PCAR y CMI mediante un diagrama de dispersión. La función plot genera un gráfico de dispersión que coloca los rendimientos de PCAR en el eje X y los de CMI en el eje Y, permitiendo observar si existe un patrón lineal entre ambas variables. Posteriormente, se añade la recta estimada por el modelo de regresión, con la función abline.
+```{r}
+modelo_PCAR <- lm(CMI ~ PCAR, data = data_model100)
+
+plot(data_model100$PCAR, data_model100$CMI, main = "Rendimientos diarios PCAR vs CMI", xlab = "PCAR", ylab = "CMI")
+
+abline(modelo_PCAR, col = "green", lwd = 2)
+```
+Interpretación: El diagrama de dispersión muestra la relación entre los rendimientos diarios de PCAR (eje X) y los rendimientos diarios de CMI (eje Y). Visualmente, los puntos presentan una tendencia ascendente, lo que indica una relación positiva entre ambas variables: cuando los rendimientos de PCAR aumentan, los rendimientos de CMI tienden también a incrementarse. Esta dirección coincide con la dependencia positiva observada en el análisis econométrico.
+La línea verde representa la recta de regresión ajustada. Su pendiente positiva refleja el coeficiente estimado en el modelo (β₁ = 0.62899), lo que confirma que CMI reacciona en la misma dirección que PCAR, y aproximadamente con un 63% de su magnitud. Este comportamiento visual valida la relación numérica obtenida en la regresión, mostrando que los movimientos en PCAR se transmiten de manera significativa hacia CMI.
+La recta atraviesa una zona con alta concentración de puntos, lo cual es consistente con el nivel de ajuste del modelo (R² = 0.3512). Si bien existe dispersión esperada debido a la naturaleza volátil de los rendimientos diarios, se observa un patrón lineal claro alrededor de la línea, indicando que PCAR es un predictor relevante del comportamiento de CMI.
+En conjunto, el gráfico confirma visualmente que existe una relación positiva, sistemática y estadísticamente significativa entre PCAR y CMI, alineándose con los resultados del modelo econométrico y reforzando la importancia de PCAR como variable explicativa en los rendimientos de CMI.
+
+# CMI vs NUE
+En este paso se estima un modelo de regresión lineal simple donde los rendimientos de CMI actúan como variable dependiente y los rendimientos de NUE como regresor principal. El modelo se ajusta mediante la función lm() y se almacena en el objeto modelo_NUE.
+```{r}
+modelo_NUE  <- lm(CMI ~ NUE, data = data_model100)
+summary (modelo_NUE)
+```
+Interpretación: El modelo confirma que los rendimientos de NUE son un determinante significativo del comportamiento de CMI, con un coeficiente positivo y estadísticamente sólido (β₁ = 0.3754414, p < 2e-16). Esto indica que los movimientos en los rendimientos de NUE se transmiten a los rendimientos de CMI, aunque con menor intensidad que en el caso de otras variables como CAT o PCAR. En términos prácticos, por cada aumento de 1 unidad en el rendimiento de NUE, el rendimiento de CMI aumenta en aproximadamente 0.3754 unidades, lo que refleja una relación positiva pero de moderada magnitud.
+El ajuste del modelo es razonable para datos financieros diarios, con un R² = 0.1995, lo que implica que NUE explica cerca del 19.95% de la variabilidad en los rendimientos de CMI. Aunque este nivel de explicación es inferior al observado con CAT o PCAR, sigue siendo relevante dadas las características volátiles de los rendimientos diarios. El estadístico F (123.9, p < 2.2e-16) confirma la significancia global del modelo, indicando que los rendimientos de NUE tienen un impacto estadísticamente distinto de cero sobre los rendimientos de CMI.
+El intercepto es estadísticamente significativo (β₀ = 0.0017116, p = 0.0223), lo que sugiere que, incluso cuando NUE no presenta cambios en sus rendimientos, CMI tiende a mostrar un rendimiento promedio ligeramente positivo; sin embargo, este efecto es pequeño en magnitud y no altera la interpretación central del modelo.
+En conjunto, estos resultados muestran que NUE es un predictor significativo del rendimiento de CMI, con una relación positiva y consistente, aunque de menor fuerza explicativa comparada con CAT o PCAR. Aun así, la asociación estadística es clara y contribuye a capturar parte importante de la dinámica conjunta entre ambas acciones.
+
+En este paso se visualiza la relación lineal entre los rendimientos de NUE y CMI mediante un diagrama de dispersión. La función plot genera un gráfico de dispersión que coloca los rendimientos de NUE en el eje X y los de CMI en el eje Y, permitiendo observar si existe un patrón lineal entre ambas variables. Posteriormente, se añade la recta estimada por el modelo de regresión, con la función abline.
+```{r}
+modelo_NUE <- lm(CMI ~ NUE, data = data_model100)
+
+plot(data_model100$NUE, data_model100$CMI, main = "Rendimientos diarios NUE vs CMI", xlab = "NUE", ylab = "CMI")
+
+abline(modelo_NUE, col = "green", lwd = 2)
+```
+Interpretación: El diagrama de dispersión muestra la relación entre los rendimientos diarios de NUE (eje X) y los rendimientos diarios de CMI (eje Y). Visualmente, los puntos presentan una tendencia ascendente suave, lo que indica que existe una relación positiva entre ambas variables: cuando los rendimientos de NUE aumentan, los rendimientos de CMI tienden también a incrementarse. Aunque la pendiente visual es menos pronunciada que en los casos de CAT o PCAR, la dirección sigue siendo claramente positiva.
+La línea verde corresponde a la recta de regresión ajustada. Su pendiente coincide con el coeficiente estimado en el modelo (β₁ = 0.3754), lo que confirma que CMI reacciona en la misma dirección que NUE, aunque con una magnitud más moderada: aproximadamente un 37.5% del movimiento de NUE se refleja en CMI. Este comportamiento visual es coherente con los resultados estadísticos, que muestran una relación positiva pero más tenue comparada con otras variables.
+El ajuste visual del modelo es consistente con el nivel de explicación obtenido (R² = 0.1995). La nube de puntos es más dispersa alrededor de la línea en comparación con modelos anteriores, reflejando que la relación lineal existe, pero es menos fuerte. No obstante, la concentración de puntos cerca de la recta en la región central del gráfico evidencia que el vínculo entre ambas acciones es real y sistemático.
+En conjunto, el gráfico muestra que la relación entre los rendimientos de NUE y CMI es positiva, estadísticamente significativa y visualmente detectable, aunque de menor intensidad que en los casos de CAT o PCAR. Esto respalda la conclusión econométrica de que NUE sí actúa como un predictor relevante, aunque con menor potencia explicativa.
+
+# CMI vs PH
+En este paso se estima un modelo de regresión lineal simple donde los rendimientos de CMI actúan como variable dependiente y los rendimientos de PH como regresor principal. El modelo se ajusta mediante la función lm() y se almacena en el objeto modelo_PH.
+```{r}
+modelo_PH  <- lm(CMI ~ PH, data = data_model100)
+summary (modelo_PH)
+```
+Interpretación: El modelo confirma que los rendimientos de PH son un determinante altamente significativo del comportamiento de CMI, con un coeficiente positivo y elevado (β₁ = 0.6507732, p < 2e-16). Esto indica que los movimientos en los rendimientos de PH se reflejan de manera importante en los rendimientos de CMI, mostrando una relación sectorial fuerte entre ambas compañías. En términos prácticos, por cada aumento de 1 unidad en el rendimiento de PH, el rendimiento de CMI aumenta en aproximadamente 0.6508 unidades, lo que revela un impacto de magnitud similar al observado con CAT.
+El ajuste del modelo es notable para datos financieros diarios: el R² = 0.3955 implica que PH explica alrededor del 39.55% de la variabilidad en los rendimientos de CMI, convirtiéndolo en uno de los predictores más poderosos dentro del grupo analizado. El estadístico F (325.1, p < 2.2e-16) confirma la significancia global del modelo, mostrando que la relación entre ambas variables es altamente consistente y no producto del azar.
+El intercepto no es significativo (β₀ = 0.0008408, p = 0.197), lo que sugiere que, cuando PH no presenta cambios en sus rendimientos, el rendimiento esperado de CMI no difiere estadísticamente de cero. Esto es coherente con la interpretación general de los rendimientos financieros.
+En conjunto, estos resultados muestran que PH es un predictor fuerte, significativo y consistente del rendimiento de CMI, con un coeficiente elevado y un nivel de ajuste muy competitivo frente al resto de acciones analizadas. Su comportamiento altamente alineado con CMI refuerza la hipótesis de que ambas empresas están sujetas a impulsos sectoriales comunes y comparten dinámicas de mercado similares.
+
+En este paso se visualiza la relación lineal entre los rendimientos de PH y CMI mediante un diagrama de dispersión. La función plot genera un gráfico de dispersión que coloca los rendimientos de PH en el eje X y los de CMI en el eje Y, permitiendo observar si existe un patrón lineal entre ambas variables. Posteriormente, se añade la recta estimada por el modelo de regresión, con la función abline.
+```{r}
+modelo_PH <- lm(CMI ~ PH, data = data_model100)
+
+plot(data_model100$PH, data_model100$CMI, main = "Rendimientos diarios PH vs CMI", xlab = "PH", ylab = "CMI")
+
+abline(modelo_PH, col = "green", lwd = 2)
+```
+Interpretación: El diagrama de dispersión muestra la relación entre los rendimientos diarios de PH (eje X) y los rendimientos diarios de CMI (eje Y). Visualmente, los puntos presentan una tendencia ascendente clara, lo que indica que existe una relación positiva entre ambas variables: cuando los rendimientos de PH aumentan, los rendimientos de CMI tienden también a incrementarse. Esta dirección es consistente con la interdependencia sectorial que caracteriza a ambas compañías dentro del ámbito industrial.
+La línea verde corresponde a la recta de regresión ajustada, cuya pendiente positiva coincide con el coeficiente estimado en el modelo (β₁ = 0.6508). Esto confirma que CMI se mueve en la misma dirección que PH, y aproximadamente con un 65% de la magnitud del movimiento. La inclinación de la línea es una representación visual del fuerte efecto estadístico encontrado en el modelo.
+La nube de puntos permanece bastante concentrada alrededor de la recta, especialmente en la zona central del gráfico, lo cual es consistente con el nivel de ajuste del modelo (R² = 0.3955). Aunque existe variabilidad natural en datos financieros diarios, el patrón general muestra una alineación clara entre las dos series.
+En conjunto, el gráfico evidencia que la relación entre PH y CMI es positiva, consistente y estadísticamente significativa, reforzando la conclusión econométrica de que PH es uno de los predictores más fuertes del rendimiento de CMI dentro de las acciones analizadas.

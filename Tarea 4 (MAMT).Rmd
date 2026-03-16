@@ -1,0 +1,643 @@
+---
+title: "Tarea 4"
+output: html_document
+date: "2026-02-07"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+###TAREA_4_MARIANN_ANTONELLI_MORALES_TOBIAS_A01452078
+
+###Modelo de Regresión Lineal Múltiple
+
+##Objetivo y fundamento
+El objetivo del modelo es analizar cómo los rendimientos de una empresa central dentro de la industria de motores y equipo pesado, Cummins Inc. (CMI), se relacionan con los movimientos simultáneos de compañías que participan en diferentes partes de su ecosistema productivo. Con ello se pretende capturar factores comunes vinculados al ciclo económico, la demanda de vehículos comerciales, la actividad industrial, el mercado energético y el comportamiento del transporte de carga.
+
+En el modelo se utilizó a Cummins (CMI) como variable dependiente, debido a su papel como fabricante esencial de motores diésel, tren motriz y power systems utilizados en camiones clase 8, maquinaria industrial y aplicaciones energéticas. Su comportamiento es altamente sensible a variaciones en la actividad industrial, el transporte pesado, la demanda de flotas y los precios de combustibles. Las variables independientes utilizadas reflejan distintos segmentos que influyen directa o indirectamente en el desempeño de Cummins:
+- OEMs de camiones, maquinaria pesada y vehículos comerciales
+PACCAR (PCAR), Caterpillar (CAT), John Deere (DE), Oshkosh (OSK), General Motors (GM), Ford (F): Estas empresas capturan la demanda de camiones clase 8, maquinaria de construcción/agricultura y vehículos comerciales, segmentos donde Cummins participa suministrando motores y sistemas de potencia.
+- Competidor estratégico por transición tecnológica Tesla (TSLA): Esta acción fue incluida para capturar efectos de la electrificación del transporte pesado y su impacto sobre la demanda futura de motores de combustión.
+- Industriales y empresas vinculadas a soluciones energéticas
+Honeywell (HON) y Eaton (ETN): Son relevantes por su participación en automatización, infraestructura energética e industrias con fuerte demanda de maquinaria.
+- Energía y refinación Exxon Mobil (XOM) y Valero Energy (VLO): Consideradas para capturar efectos derivados de los precios del combustible y su relación con el uso de flotas y maquinaria pesada.
+- Materia prima Nucor (NUE): Como mayor productor de acero en EE. UU., incorpora la dinámica de precios de acero y materiales industriales, esenciales para la fabricación de camiones, maquinaria pesada y motores, influyendo en costos y demanda del sector.
+- Transporte y logística UPS (UPS) y FedEx (FDX): Reflejan la actividad en el transporte de mercancías, el ritmo económico real y la utilización de camiones comerciales.
+
+En conjunto, este portafolio de variables permite modelar de manera integral los determinantes del rendimiento de Cummins durante el periodo analizado, integrando tanto factores sectoriales como industriales, energéticos y logísticos. La combinación asegura diversidad sectorial con una fuerte coherencia económica, proporcionando una base sólida para interpretar los coeficientes estimados y el comportamiento del ecosistema donde opera Cummins.
+
+Para este análisis se utilizaron precios intradía con una frecuencia de 1 minuto, correspondientes al periodo comprendido entre el 1 y el 31 de enero de 2026 para todas las acciones consideradas (CMI, CAT, DE, ETN, F, FDX, GM, HON, NUE, OSK, PCAR, TSLA, UPS, VLO y XOM).
+Este marco temporal y nivel de granularidad se seleccionaron por las siguientes razones:
+1. Todas las series deben estar medidas en el mismo periodo y con la misma frecuencia para que la matriz de correlación y el modelo de regresión sean estadísticamente válidos. Utilizar un intervalo de 1 minuto permite alinear perfectamente los movimientos del precio entre acciones de sectores distintos sin pérdida de información.
+2. Las compañías analizadas operan en sectores altamente vinculados al ciclo industrial, logística, energía y transporte pesado. Sus rendimientos intradía permiten detectar reacciones inmediatas ante anuncios macroeconómicos, variaciones en precios de commodities, cambios de sentimiento del mercado, movimientos simultáneos de empresas relacionadas en cadenas de valor. Aquí el intervalo de 1 minuto aporta una visión mucho más detallada de estas interdependencias.
+3. Ventana de un mes para evitar mezcla de regímenes, lo cual representa un entorno económico homogéneo, un mismo ciclo contable previo a reportes de Q4 2025 y ausencia de cambios pronunciados en política monetaria dentro del periodo. Esto mejora la estabilidad del modelo al evitar distorsiones provocadas por eventos como earnings, cambios de tasas, etcétera, que muy probablemente ocurrirían si se ampliara demasiado la muestra.
+
+Los datos fueron obtenidos desde Refinitiv que proporciona precios intradía en formato histórico con sello de tiempo preciso. Además, se seleccionó el mes de enero ya que particularmente adecuado para analizar cadenas industriales porque hay alta actividad en manufactura y transporte posterior a diciembre, los mercados procesan expectativas sobre crecimiento y gasto comercial, y se observa la demanda de flotas, maquinaria y equipos energéticos al inicio del año.
+
+En conjunto, este fundamento asegura que las series analizadas cumplan con los requisitos estadísticos del modelo y respondan adecuadamente al objetivo central: estudiar la interrelación entre Cummins y las empresas clave de su ecosistema industrial durante un periodo homogéneo y suficientemente detallado.
+
+##Construcción del modelo
+Se descargan las librerías readxl y xts. Por una parte readxl permite importar y leer archivos de Excel en R, mientras que xts crear y manipular series de tiempo, especialmente financieras. 
+```{r}
+library(readxl)
+library(xts)
+```
+
+Con la función read_excel() se importan los datos desde archivos Excel (.xlsx o .xls) directamente a R.
+```{r}
+CMI <- read_excel("CMI.xlsx")
+CAT <- read_excel("CMI.xlsx")
+DE <- read_excel("DE.xlsx")
+ETN <- read_excel("ETN.xlsx")
+F <- read_excel("F.xlsx")
+FDX <- read_excel("FDX.xlsx")
+GM <- read_excel("GM.xlsx")
+HON <- read_excel("HON.xlsx")
+NUE <- read_excel("NUE.xlsx")
+OSK <- read_excel("OSK.xlsx")
+PCAR <- read_excel("PCAR.xlsx")
+TSLA <- read_excel("TSLA.xlsx")
+UPS <- read_excel("UPS.xlsx")
+VLO <- read_excel("VLO.xlsx")
+XOM <- read_excel("XOM.xlsx")
+```
+
+Con la función as.POSIXct() se convierte la columna Exchange Date a un formato de fecha-hora real y se asigna la zona horaria correspondiente para trabajar correctamente con series de tiempo en R.
+```{r}
+CMI$`Exchange Date` <- as.POSIXct(CMI$`Exchange Date`, tz = "America/New_York")
+CAT$`Exchange Date` <- as.POSIXct(CAT$`Exchange Date`, tz = "America/New_York")
+DE$`Exchange Date` <- as.POSIXct(DE$`Exchange Date`, tz = "America/New_York")
+ETN$`Exchange Date` <- as.POSIXct(ETN$`Exchange Date`, tz = "America/New_York")
+F$`Exchange Date` <- as.POSIXct(F$`Exchange Date`, tz = "America/New_York")
+FDX$`Exchange Date` <- as.POSIXct(FDX$`Exchange Date`, tz = "America/New_York")
+GM$`Exchange Date` <- as.POSIXct(GM$`Exchange Date`, tz = "America/New_York")
+HON$`Exchange Date` <- as.POSIXct(HON$`Exchange Date`, tz = "America/New_York")
+NUE$`Exchange Date` <- as.POSIXct(NUE$`Exchange Date`, tz = "America/New_York")
+OSK$`Exchange Date` <- as.POSIXct(OSK$`Exchange Date`, tz = "America/New_York")
+PCAR$`Exchange Date` <- as.POSIXct(PCAR$`Exchange Date`, tz = "America/New_York")
+TSLA$`Exchange Date` <- as.POSIXct(TSLA$`Exchange Date`, tz = "America/New_York")
+UPS$`Exchange Date` <- as.POSIXct(UPS$`Exchange Date`, tz = "America/New_York")
+VLO$`Exchange Date` <- as.POSIXct(VLO$`Exchange Date`, tz = "America/New_York")
+XOM$`Exchange Date` <- as.POSIXct(XOM$`Exchange Date`, tz = "America/New_York")
+```
+
+Con la función xts() se convierte la columna Close en una serie de tiempo cuyo índice es la fecha-hora, permitiendo analizar rendimientos y combinar series de manera adecuada en R. Se crean nuevas variables con los precios de cierre de cada acción.
+```{r}
+cmi_close <- xts(CMI$Close, order.by = CMI$`Exchange Date`)
+cat_close <- xts(CAT$Close, order.by = CAT$`Exchange Date`)
+de_close <- xts(DE$Close, order.by = DE$`Exchange Date`)
+etn_close <- xts(ETN$Close, order.by = ETN$`Exchange Date`)
+f_close <- xts(F$Close, order.by = F$`Exchange Date`)
+fdx_close <- xts(FDX$Close, order.by = FDX$`Exchange Date`)
+gm_close <- xts(GM$Close, order.by = GM$`Exchange Date`)
+hon_close <- xts(HON$Close, order.by = HON$`Exchange Date`)
+nue_close <- xts(NUE$Close, order.by = NUE$`Exchange Date`)
+osk_close <- xts(OSK$Close, order.by = OSK$`Exchange Date`)
+pcar_close <- xts(PCAR$Close, order.by = PCAR$`Exchange Date`)
+tsla_close <- xts(TSLA$Close, order.by = TSLA$`Exchange Date`)
+ups_close <- xts(UPS$Close, order.by = UPS$`Exchange Date`)
+vlo_close <- xts(VLO$Close, order.by = VLO$`Exchange Date`)
+xom_close <- xts(XOM$Close, order.by = XOM$`Exchange Date`)
+```
+
+Con la función na.omit() se eliminan las observaciones faltantes en los precios, asegurando que los cálculos de rendimientos se realicen únicamente con datos completos y válidos.
+```{r}
+cmi_close  <- na.omit(cmi_close)
+cat_close  <- na.omit(cat_close)
+de_close   <- na.omit(de_close)
+etn_close  <- na.omit(etn_close)
+f_close    <- na.omit(f_close)
+fdx_close  <- na.omit(fdx_close)
+gm_close   <- na.omit(gm_close)
+hon_close  <- na.omit(hon_close)
+nue_close  <- na.omit(nue_close)
+osk_close  <- na.omit(osk_close)
+pcar_close <- na.omit(pcar_close)
+tsla_close <- na.omit(tsla_close)
+ups_close  <- na.omit(ups_close)
+vlo_close  <- na.omit(vlo_close)
+xom_close  <- na.omit(xom_close)
+```
+
+Con la función diff(log()), se transforman los precios en rendimientos logarítmicos por minuto, permitiendo analizar la variación relativa y continua del valor de cada acción. Se crean nuevas variables con los rendimientos logarítmicos por minuto de cada acción.
+```{r}
+cmi_ret  <- diff(log(cmi_close))
+cat_ret  <- diff(log(cat_close))
+de_ret   <- diff(log(de_close))
+etn_ret  <- diff(log(etn_close))
+f_ret    <- diff(log(f_close))
+fdx_ret  <- diff(log(fdx_close))
+gm_ret   <- diff(log(gm_close))
+hon_ret  <- diff(log(hon_close))
+nue_ret  <- diff(log(nue_close))
+osk_ret  <- diff(log(osk_close))
+pcar_ret <- diff(log(pcar_close))
+tsla_ret <- diff(log(tsla_close))
+ups_ret  <- diff(log(ups_close))
+vlo_ret  <- diff(log(vlo_close))
+xom_ret  <- diff(log(xom_close))
+```
+
+Con la función merge() se alinean todas las series de rendimientos y, mediante na.omit(), se eliminan las observaciones faltantes para conservar únicamente los minutos en los que todas las acciones tienen información disponible. Para ello, se crea la variable data_industrial.
+```{r}
+data_industrial <- merge(cmi_ret, cat_ret, de_ret, etn_ret, f_ret, fdx_ret, gm_ret, hon_ret, nue_ret, osk_ret, pcar_ret, tsla_ret, ups_ret, vlo_ret, xom_ret)
+
+data_industrial <- na.omit(data_industrial)
+```
+
+Con la función colnames() se renombran las columnas de la matriz de rendimientos para identificar claramente cada acción y facilitar los análisis de correlación y regresión.
+```{r}
+colnames(data_industrial) <- c("cmi_ret", "cat_ret", "de_ret", "etn_ret", "f_ret", "fdx_ret", "gm_ret", "hon_ret", "nue_ret", "osk_ret", "pcar_ret", "tsla_ret", "ups_ret", "vlo_ret", "xom_ret")
+```
+
+Con la función cor se crea la matriz de correlaciones de data_industrial. Para ello, se crea la variable cor_matrix que realiza un filtro inicial que permite identificar variables altamente relacionadas entre sí, evitando duplicidad de información antes de aplicar el modelo de regresión lineal múltiple.
+```{r}
+cor_matrix <- cor(data_industrial)
+cor_matrix
+```
+
+Se descarga la librería ggcorrplot y con la función ggcorrplot se grafica un mapa de calor de la correlación de todas las variables del modelo. 
+```{r}
+library(ggcorrplot)
+ggcorrplot(cor_matrix)
+```
+
+Interpretación: El mapa de calor presenta la matriz de correlaciones entre los rendimientos intradía (frecuencia de 1 minuto) de Cummins (cmi_ret) y las acciones relacionadas con su ecosistema industrial durante el periodo del 1 al 31 de enero de 2026. En términos generales, se observan correlaciones bajas a moderadas, lo cual indica que la mayoría de las variables aportan información única, sin embargo, se detecta que únicamente los rendimientos de Cummins (cmi_ret) y Caterpillar (cat_ret) presentan correlación perfecta (1.0000), por lo que representan información duplicada y una de ellas debe eliminarse antes de realizar el Modelo de Regresión Lineal Múltiple, en este caso, se eliminará Caterpillar. Este comportamiento es consistente con la operación del sector: ambos participan en maquinaria pesada, motores, equipo agrícola y de construcción, reaccionan simultáneamente a anuncios de manufactura, datos macroeconómicos y expectativas de inversión en infraestructura, y dado que utilizan insumos similares y dependen de ciclos industriales parecidos, sus precios intradía tienden a moverse de manera coordinada. Lo interesante es que John Deere también participa en este sector de maquinaria pesada, sin embargo, la correlación es mucho más baja tanto con Cummins como con Caterpillar (0.12322516).
+El heatmap muestra correlación moderada (0.32885729) entre FedEx (fdx_ret) y UPS (ups_ret), lo cual era esperado, ya que ambas operan en transporte de mercancías, reaccionan a demanda logística, están expuestas a precios del combustible y ritmo económico. En pocas palabras, ambas aportan contexto sobre actividad en transporte pesado, variable clave para Cummins. 
+Por otro lado, los fabricantes de vehículos presentan correlaciones bajas a moderadas entre sí (f_ret, gm_ret, tsla_ret, pcar_ret, osk_ret). Esto indica que, a pesar de pertenecer al mismo sector, su movimiento es heterogéneo debido a diferencias en segmentos atendidos (vehículos ligeros, clase 8, militares, eléctricos), anuncios propios de cada compañía, y probablemente tengan una sensibilidad distinta a tasas de interés y a inventarios. Este comportamiento diversificado es útil para capturar matices del entorno industrial que afecta a Cummins en el corto plazo.
+En el sector energético, las correlaciones entre Valero (vlo_ret) y Exxon Mobil (xom_ret) son moderadas (0.34459363). Ambas se mueven en función de precios del petróleo, volatilidad energética, márgenes de refinación, etcétera. Aunque relacionadas entre sí, muestran correlación baja con las empresas industriales, lo que aporta información complementaria sobre el costo del combustible que impacta transporte y maquinaria.
+Finalmente, Honeywell (hon_ret), Eaton (etn_ret) y Nucor (nue_ret) muestran correlaciones relativamente bajas con el resto del portafolio, lo cual es deseable, considerando que forman parte de diferentes sectores, tales como: automatización, componentes eléctricos y acero, respectivamente. Sus rendimientos reflejan dinámicas propias que no están totalmente sincronizadas con el resto del ecosistema.
+
+Se construye el modelo100 como una regresión lineal múltiple en la que el rendimiento logarítmico de Cummins (cmi_ret) actúa como variable dependiente, mientras que como variables independientes se incluyen los rendimientos del resto de las acciones consideradas al inicio del análisis, excluyendo a Caterpillar (cat_ret) por presentar información duplicada con cmi_ret.
+```{r}
+df_industrial <- as.data.frame(data_industrial)
+
+model100 <- lm(cmi_ret ~ de_ret + etn_ret + f_ret + fdx_ret + gm_ret + hon_ret + nue_ret + osk_ret + pcar_ret + tsla_ret + ups_ret + vlo_ret + xom_ret, data = df_industrial)
+
+summary(model100)
+```
+Interpretación: El modelo evalúa qué movimientos en los rendimientos de otras empresas del sector industrial y relacionados explican la variación minuto a minuto del rendimiento de Cummins (cmi_ret). En general, se observa que varias empresas del sector manufacturero, transporte y energía influyen de manera significativa en el comportamiento intradía de Cummins.
+Las variables que aumentan el rendimiento de Cummins, teniendo un efecto positivo y significativo son:
+- etn_ret (Eaton): Es uno de los factores más importantes del modelo. Sus rendimientos explican fuertemente los movimientos de Cummins, lo cual tiene sentido porque ambas empresas operan en sectores industriales estrechamente relacionados.
+- hon_ret (Honeywell): También es un predictor muy fuerte. Honeywell es una empresa industrial diversificada y sus variaciones de rendimiento se reflejan claramente en Cummins.
+- pcar_ret (Paccar): Presenta un efecto positivo y significativo, lo cual es lógico, ya que Paccar fabrica camiones pesados y comparte dinámica industrial con Cummins.
+- osk_ret (Oshkosh): Tiene un impacto positivo importante, coherente con el hecho de que ambas empresas dependen del mismo tipo de ciclo económico.
+- f_ret (Ford): Aunque pertenece al sector automotriz, sus movimientos sí están alineados con los de Cummins, posiblemente porque ambos están relacionados con la demanda industrial y del transporte.
+- nue_ret (Nucor): El acero es un insumo clave para maquinaria pesada, por lo que un mejor desempeño en Nucor suele coincidir con actividad industrial más fuerte.
+- de_ret (John Deere): Al ser fabricante de maquinaria agrícola y cliente estratégico, se mueve sincronizadamente con Cummins.
+- xom_ret (ExxonMobil): Su efecto positivo refleja que la industria energética también está vinculada al desempeño del sector industrial.
+Las variables que no muestran un efecto significativo, es decir, que son controladas por las demás, son: gm_ret (General Motors), tsla_ret (Tesla), vlo_ret (Valero), ups_ret (UPS). 
+El R² = 0.1338 indica que el modelo explica alrededor del 13% de la variación en los rendimientos por minuto de Cummins. Aunque el valor es bajo, esto es completamente normal en datos financieros intradía, ya que los rendimientos por minuto suelen ser muy volátiles y difíciles de predecir.
+El estadístico F indica que el modelo, considerado como un todo, sí tiene capacidad explicativa. Es decir, aunque cada minuto es muy difícil de predecir por la alta volatilidad, todas las variables juntas aportan información útil para entender cómo se mueve el rendimiento de Cummins.
+
+Debido a que los datos utilizados corresponden a rendimientos intradía y requieren alinear series por minuto, la disponibilidad efectiva de observaciones se reduce considerablemente. Para evitar problemas de sobreajuste y disminuir la presencia de correlaciones redundantes entre variables, se decidió simplificar el modelo final conservando únicamente las variables con mayor relevancia estadística y económica: etn_ret (Eaton), de_ret (John Deere), f_ret (Ford), hon_ret (Honeywell), nue_ret (Nucor), osk_ret (Oshkosh), pcar_ret (Paccar) y xom_ret (ExxonMobil). 
+Estas variables fueron seleccionadas porque muestran relaciones claras y consistentes con el comportamiento de Cummins, ya sea por pertenecer al mismo sector industrial, por compartir factores macroeconómicos comunes o por reflejar dinámicas de oferta, demanda y producción asociadas a maquinaria pesada, transporte y energía. Al mantener únicamente los predictores con mayor aporte marginal, el modelo se vuelve más estable, reduce la colinealidad y permite interpretaciones más precisas.
+
+```{r}
+modelo100_reduced <- lm(cmi_ret ~ etn_ret + de_ret + f_ret +
+hon_ret + nue_ret + osk_ret + pcar_ret + xom_ret, data = df_industrial)
+
+summary(modelo100_reduced)
+```
+Se construyó una matriz de correlación utilizando únicamente las variables del modelo reducido, con el fin de evaluar la relación lineal entre los predictores y confirmar que no existan asociaciones excesivamente altas que puedan generar problemas de multicolinealidad en la regresión. Para esto se creó la variable vars_reducido y posteriormente la variable cor_matrix_reduced.
+```{r}
+vars_reducido <- df_industrial[, c("cmi_ret", "etn_ret", "de_ret", "f_ret", "hon_ret", "nue_ret", "osk_ret", "pcar_ret", "xom_ret"
+)]
+
+cor_matrix_reduced <- cor(vars_reducido)
+cor_matrix_reduced
+```
+
+Se grafica el mapa de calor de la correlación de las variables en el modelo ajustado con la función ggcorrplot.
+```{r}
+ggcorrplot(cor_matrix_reduced)
+```
+
+Interpretación: El modelo reducido muestra que los movimientos intradía de Cummins están fuertemente influenciados por empresas del sector industrial, manufactura de maquinaria pesada, transporte y energía. Eaton, Honeywell, Paccar y Oshkosh destacan como los predictores más importantes, reflejando su cercanía operativa y su sensibilidad común al ciclo industrial. Todas las variables incluidas son estadísticamente significativas, lo que confirma que este conjunto reducido explica de forma estable y económicamente coherente los rendimientos por minuto de Cummins. El R² del modelo reducido disminuye ligeramente de 13.38% a 13.22%, lo cual es completamente esperado tras eliminar variables. Dado que las variables excluidas no aportaban información estadísticamente significativa, la pérdida de capacidad explicativa es mínima. Al mismo tiempo, el modelo reducido es más estable, más interpretable y evita colinealidad innecesaria, por lo que representa una especificación más adecuada para datos intradía.
+
+Con la función vif se obtiene el VIF del modelo, el cual es una medida que se utiliza en regresión lineal para detectar multicolinealidad, es decir, si las variables independientes están demasiado correlacionadas entre sí. Se descarga la librería car. 
+```{r}
+library(car)
+vif(modelo100_reduced)
+```
+
+Interpretación: Los valores VIF del modelo reducido se encuentran en un rango muy bajo (1.04–1.15), lo que indica que no existe multicolinealidad significativa entre los predictores. Esto confirma que cada variable aporta información propia sin duplicar la de otras, y que los coeficientes estimados son estables y confiables. En conjunto, los VIF bajos validan la decisión de reducir el modelo, ya que la nueva especificación elimina redundancias y mejora la calidad estadística del análisis.
+
+##Interpretación de la detección de la violación de los supuestos de regresión lineal
+Al analizar los supuestos clásicos de la regresión lineal múltiple, se observa que el modelo final no presenta violaciones relevantes relacionadas con la multicolinealidad, uno de los problemas más frecuentes en modelos con múltiples predictores.
+
+1. Multicolinealidad.
+La multicolinealidad ocurre cuando las variables explicativas están altamente correlacionadas entre sí, dificultando la identificación de su efecto individual. En la etapa inicial del análisis, se identificó un caso extremo: Cummins (cmi_ret) presentaba correlación perfecta con Caterpillar (cat_ret), lo que hacía imposible incluir ambas en el modelo debido a una multicolinealidad perfecta.
+Por esta razón, Caterpillar fue eliminada del conjunto de variables explicativas, permitiendo que el modelo pudiera estimarse correctamente.
+
+2. R² alto con coeficientes no significativos
+Un síntoma típico de multicolinealidad es obtener un R² muy elevado mientras que la mayoría de los coeficientes individuales no son significativos.
+En este caso, el modelo ajustado presenta un R² moderado (13.22%), apropiado para series intradía, y además todos los coeficientes incluidos son estadísticamente significativos, lo que descarta esta señal clásica de multicolinealidad.
+
+3. Matriz de correlaciones y diagramas de dispersión
+El análisis de correlaciones entre las variables remanentes mostró valores moderados y ningún par con correlación tan elevada como para generar sospecha de dependencia lineal problemática. Una vez excluida Caterpillar, no se observaron relaciones excesivamente fuertes entre predictores.
+
+4. Factor Inflador de Varianza (VIF)
+Los VIF obtenidos se sitúan en un rango muy reducido (1.04–1.15), muy por debajo de los umbrales convencionales para alertar sobre multicolinealidad (5 o 10). Esto confirma que las varianzas de los coeficientes no están infladas y que cada variable aporta información independiente al modelo.
+
+##Estrategia de Portafolio
+Para implementar la estrategia derivada del modelo reducido, se colocaron órdenes de compra en Cummins (CMI) y en ocho empresas industrialmente relacionadas (ETN, DE, F, HON, NUE, OSK, PCAR y XOM).
+La posición principal se abrió en Cummins con un monto aproximado de 6M USD, mientras que cada acción secundaria recibió una asignación de alrededor de 1M USD. Para todas las posiciones se programaron dos órdenes adicionales: un stop-loss del −1% utilizando órdenes STOP y un take-profit entre +1.5% y +2% mediante órdenes LIMIT.
+Este procedimiento permite automatizar la estrategia de riesgo-beneficio dentro de HowTheMarketWorks, aun cuando la plataforma no permite órdenes One Cancels Other (OCO), manteniendo la disciplina operativa recomendada para estrategias intradía basadas en análisis econométrico y señales sectoriales.
+
+##Modelos de Regresión Lineal Simple 
+
+John Deere vs Cummins
+
+Se crea la variable modelo_de para presentar el modelo, donde el predictor es de_ret (rendimientos logarítmicos de los precios de cierre de Deere & Company) y la respuesta es cmi_ret (Cummins). Datos extraídos de Refinitiv, periodo del 1 al 31 de enero de 2026, con intervalo de 1 minuto.
+```{r}
+modelo_de <- lm(cmi_ret ~ de_ret, data = df_industrial)
+summary(modelo_de)
+```
+Con las siguientes funciones se genera el gráfico de dispersión con intervalos de confianza del modelo_de. 
+```{r}
+x <- modelo_de$model$de_ret
+y <- modelo_de$model$cmi_ret
+
+conf.interval <- predict(modelo_de, interval = "confidence")
+pred.interval <- predict(modelo_de, interval = "prediction")
+
+ord <- order(as.numeric(x))
+
+plot(as.numeric(x), as.numeric(y), pch  = 20, main = "DE vs CMI", xlab = "de_ret", ylab = "cmi_ret", col  = "red")
+
+abline(modelo_de, lwd = 2, col = "blue")
+
+matlines(as.numeric(x)[ord], conf.interval[ord, 2:3], col = "black", lty = 3)
+
+matlines(as.numeric(x)[ord], pred.interval[ord, 2:3], col = "green", lty = 3)
+```
+
+Interpretación: El modelo indica una relación positiva y estadísticamente significativa entre los rendimientos por minuto de DE y CMI. El coeficiente de de_ret es 0.1192 (p < 2e-16), lo que confirma que un aumento en una unidad en el rendimiento de DE tiende a asociarse con un aumento de 0.1192 unidades en CMI. Aunque el R² es bajo 0.015, esto es normal en datos financieros de alta frecuencia, donde la volatilidad limita el poder explicativo. El gráfico respalda esta interpretación, ya que pese a la dispersión, la línea de tendencia muestra una pendiente positiva. Aunque el modelo no explica mucha de la variación total de los rendimientos de CMI, sí muestra claramente que cuando DE se mueve, CMI tiende a moverse en la misma dirección de manera consistente.
+
+
+Eaton vs Cummins
+
+Se crea la variable modelo_etn para presentar el modelo, donde el predictor es etn_ret (rendimientos logarítmicos de los precios de cierre de EATON) y la respuesta es cmi_ret (Cummins). Datos extraídos de Refinitiv, periodo del 1 al 31 de enero de 2026, con intervalo de 1 minuto.
+```{r}
+modelo_etn <- lm(cmi_ret ~ etn_ret, data = df_industrial)
+summary(modelo_etn)
+```
+Con las siguientes funciones se genera el gráfico de dispersión con intervalos de confianza del modelo_etn.
+```{r}
+x <- modelo_etn$model$etn_ret
+y <- modelo_etn$model$cmi_ret
+
+conf.interval <- predict(modelo_etn, interval = "confidence")
+pred.interval <- predict(modelo_etn, interval = "prediction")
+
+ord <- order(as.numeric(x))
+
+plot(as.numeric(x), as.numeric(y), pch  = 20, main = "ETN vs CMI", xlab = "etn_ret", ylab = "cmi_ret", col  = "red")
+
+abline(modelo_etn, lwd = 2, col = "blue")
+
+matlines(as.numeric(x)[ord], conf.interval[ord, 2:3], col = "black", lty = 3)
+
+matlines(as.numeric(x)[ord], pred.interval[ord, 2:3], col = "green", lty = 3)
+
+```
+
+Interpretación: El modelo estima la relación entre los rendimientos logarítmicos por minuto de Eaton (ETN) y los rendimientos logarítmicos por minuto de Cummins (CMI). El coeficiente asociado a etn_ret es 0.2021, lo que implica que, por cada aumento de una unidad en el rendimiento de ETN, el rendimiento esperado de CMI aumenta en aproximadamente 0.2021 unidades. Esta relación es estadísticamente significativa, con un valor t de 20.282 y un p-value menor a 2e-16. Aunque el R² es 0.0496, un valor bajo, esto es totalmente normal en datos financieros de alta frecuencia debido a la elevada volatilidad. El gráfico respalda esta interpretación: pese a la dispersión, la línea azul muestra una pendiente positiva clara. En pocas palabras, aunque el modelo no explica toda la variación en CMI, sí evidencia que cuando ETN se mueve, CMI tiende a moverse en la misma dirección.
+
+Se crea la variable modelo_f para presentar el modelo, donde el predictor es f_ret (rendimientos logarítmicos de los precios de cierre de Ford) y la respuesta es cmi_ret (Cummins). Datos extraídos de Refinitiv, periodo del 1 al 31 de enero de 2026, con intervalo de 1 minuto.
+```{r}
+modelo_f <- lm(cmi_ret ~ f_ret, data = df_industrial)
+summary(modelo_f)
+```
+
+Con las siguientes funciones se genera el gráfico de dispersión con intervalos de confianza del modelo_f.
+```{r}
+x <- modelo_f$model$f_ret
+y <- modelo_f$model$cmi_ret
+
+conf.interval <- predict(modelo_f, interval = "confidence")
+pred.interval <- predict(modelo_f, interval = "prediction")
+
+ord <- order(as.numeric(x))
+
+plot(as.numeric(x), as.numeric(y), pch  = 20, main = "F vs CMI", xlab = "f_ret", ylab = "cmi_ret", col  = "red")
+
+abline(modelo_f, lwd = 2, col = "blue")
+
+matlines(as.numeric(x)[ord], conf.interval[ord, 2:3], col = "black", lty = 3)
+
+matlines(as.numeric(x)[ord], pred.interval[ord, 2:3], col = "green", lty = 3)
+```
+
+Interpretación: El modelo estima la relación entre los rendimientos logarítmicos por minuto de Ford (F) y los rendimientos logarítmicos por minuto de Cummins (CMI). El coeficiente asociado a f_ret es 0.1721, lo que implica que, por cada aumento de una unidad en el rendimiento de Ford, el rendimiento esperado de Cummins aumenta en aproximadamente 0.1721 unidades. Esta relación es estadísticamente significativa, con un valor t de 12.848 y un p-value menor a 2e-16, lo que confirma, siguiendo el criterio de Gujarati, que sí existe un efecto sistemático de Ford sobre CMI.
+Aunque el R² es 0.0205, un valor bajo, esto es normal en datos financieros de alta frecuencia debido a su alta volatilidad. El gráfico respalda esta interpretación: pese a la dispersión de los puntos, la línea azul muestra una pendiente positiva clara. En pocas palabras, aunque el modelo no explica toda la variación en CMI, sí evidencia que cuando Ford se mueve, CMI tiende a moverse en la misma dirección.
+
+
+FedEx vs Cummins
+
+Se crea la variable modelo_fdx para presentar el modelo, donde el predictor es fdx_ret (rendimientos logarítmicos de los precios de cierre de FedEx) y la respuesta es cmi_ret (Cummins). Datos extraídos de Refinitiv, periodo del 1 al 31 de enero de 2026, con intervalo de 1 minuto.
+```{r}
+modelo_fdx <- lm(cmi_ret ~ fdx_ret, data = df_industrial)
+summary(modelo_fdx)
+```
+Con las siguientes funciones se genera el gráfico de dispersión con intervalos de confianza del modelo_fdx.
+```{r}
+x <- modelo_fdx$model$fdx_ret
+y <- modelo_fdx$model$cmi_ret
+
+conf.interval <- predict(modelo_fdx, interval = "confidence")
+pred.interval <- predict(modelo_fdx, interval = "prediction")
+
+ord <- order(as.numeric(x))
+
+plot(as.numeric(x), as.numeric(y), pch  = 20, main = "FDX vs CMI", xlab = "fdx_ret", ylab = "cmi_ret", col  = "red")
+
+abline(modelo_fdx, lwd = 2, col = "blue")
+
+matlines(as.numeric(x)[ord], conf.interval[ord, 2:3], col = "black", lty = 3)
+
+matlines(as.numeric(x)[ord], pred.interval[ord, 2:3], col = "green", lty = 3)
+```
+
+Interpretación: El modelo estima la relación entre los rendimientos logarítmicos por minuto de FedEx (FDX) y los rendimientos logarítmicos por minuto de Cummins (CMI). El coeficiente asociado a fdx_ret es 0.1109, lo que implica que, por cada aumento de una unidad en el rendimiento de FDX, el rendimiento esperado de CMI aumenta en aproximadamente 0.1109 unidades. Esta relación es estadísticamente significativa, con un valor t de 10.560 y un p-value menor a 2e-16. Aunque el R² es 0.01395, un valor bajo, esto es completamente normal en datos financieros de alta frecuencia debido a su elevada volatilidad. El gráfico respalda esta interpretación: pese a la dispersión de los puntos, la línea azul muestra una pendiente positiva. En pocas palabras, aunque el modelo no explica toda la variación en CMI, sí evidencia que cuando FDX se mueve, CMI tiende a moverse en la misma dirección.
+
+
+General Motors vs Cummins
+
+Se crea la variable modelo_gm para presentar el modelo, donde el predictor es gm_ret (rendimientos logarítmicos de los precios de cierre de General Motors) y la respuesta es cmi_ret (Cummins). Datos extraídos de Refinitiv, periodo del 1 al 31 de enero de 2026, con intervalo de 1 minuto.
+```{r}
+modelo_gm <- lm(cmi_ret ~ gm_ret, data = df_industrial)
+summary(modelo_gm)
+```
+Con las siguientes funciones se genera el gráfico de dispersión con intervalos de confianza del modelo_gm.
+```{r}
+x <- modelo_gm$model$gm_ret
+y <- modelo_gm$model$cmi_ret
+
+conf.interval <- predict(modelo_gm, interval = "confidence")
+pred.interval <- predict(modelo_gm, interval = "prediction")
+
+ord <- order(as.numeric(x))
+
+plot(as.numeric(x), as.numeric(y), pch  = 20, main = "GM vs CMI", xlab = "gm_ret", ylab = "cmi_ret", col  = "red")
+
+abline(modelo_gm, lwd = 2, col = "blue")
+
+matlines(as.numeric(x)[ord], conf.interval[ord, 2:3], col = "black", lty = 3)
+
+matlines(as.numeric(x)[ord], pred.interval[ord, 2:3], col = "green", lty = 3)
+```
+
+Interpretación: El modelo estima la relación entre los rendimientos logarítmicos por minuto de General Motors (GM) y los rendimientos logarítmicos por minuto de Cummins (CMI). El coeficiente asociado a gm_ret es 0.09729, lo que implica que, por cada aumento de una unidad en el rendimiento de GM, el rendimiento esperado de CMI aumenta en aproximadamente 0.09729 unidades. Esta relación es estadísticamente significativa, con un valor t de 8.317 y un p-value menor a 2e-16. Aunque el R² es 0.0087, un valor bajo, esto es normal en datos financieros de alta frecuencia debido a su elevada volatilidad. El gráfico respalda esta interpretación: pese a la dispersión de los puntos, la línea azul muestra una pendiente positiva. En pocas palabras, aunque el modelo no explica toda la variación en CMI, sí evidencia que cuando GM se mueve, CMI tiende a moverse en la misma dirección.
+
+
+Honeywell vs Cummins 
+
+Se crea la variable modelo_hon para presentar el modelo, donde el predictor es hon_ret (rendimientos logarítmicos de los precios de cierre de Honeywell) y la respuesta es cmi_ret (Cummins). Datos extraídos de Refinitiv, periodo del 1 al 31 de enero de 2026, con intervalo de 1 minuto.
+```{r}
+modelo_hon <- lm(cmi_ret ~ hon_ret, data = df_industrial)
+summary(modelo_hon)
+```
+Con las siguientes funciones se genera el gráfico de dispersión con intervalos de confianza del modelo_hon.
+```{r}
+x <- modelo_hon$model$hon_ret
+y <- modelo_hon$model$cmi_ret
+
+conf.interval <- predict(modelo_hon, interval = "confidence")
+pred.interval <- predict(modelo_hon, interval = "prediction")
+
+ord <- order(as.numeric(x))
+
+plot(as.numeric(x), as.numeric(y), pch  = 20, main = "HON vs CMI", xlab = "hon_ret", ylab = "cmi_ret", col  = "red")
+
+abline(modelo_hon, lwd = 2, col = "blue")
+
+matlines(as.numeric(x)[ord], conf.interval[ord, 2:3], col = "black", lty = 3)
+
+matlines(as.numeric(x)[ord], pred.interval[ord, 2:3], col = "green", lty = 3)
+```
+
+Interpretación: El modelo estima la relación entre los rendimientos logarítmicos por minuto de Honeywell (HON) y los rendimientos logarítmicos por minuto de Cummins (CMI). El coeficiente asociado a hon_ret es 0.2718, lo que implica que, por cada aumento de una unidad en el rendimiento de HON, el rendimiento esperado de CMI aumenta en aproximadamente 0.2718 unidades. Esta relación es estadísticamente significativa, con un valor t de 21.886 y un p-value menor a 2e-16. Aunque el R² es 0.0573, un valor bajo en términos absolutos, esto es completamente normal en datos financieros de alta frecuencia debido a su volatilidad. El gráfico respalda esta interpretación: pese a la dispersión de los puntos, la línea azul muestra una pendiente positiva clara. En pocas palabras, aunque el modelo no explica toda la variación en CMI, sí evidencia que cuando HON se mueve, CMI tiende a moverse en la misma dirección.
+
+
+Nucor vs Cummins
+
+Se crea la variable modelo_nue para presentar el modelo, donde el predictor es nue_ret (rendimientos logarítmicos de los precios de cierre de Nucor) y la respuesta es cmi_ret (Cummins). Datos extraídos de Refinitiv, periodo del 1 al 31 de enero de 2026, con intervalo de 1 minuto.
+```{r}
+modelo_nue <- lm(cmi_ret ~ nue_ret, data = df_industrial)
+summary(modelo_nue)
+```
+Con las siguientes funciones se genera el gráfico de dispersión con intervalos de confianza del modelo_nue.
+```{r}
+x <- modelo_nue$model$nue_ret
+y <- modelo_nue$model$cmi_ret
+
+conf.interval <- predict(modelo_nue, interval = "confidence")
+pred.interval <- predict(modelo_nue, interval = "prediction")
+
+ord <- order(as.numeric(x))
+
+plot(as.numeric(x), as.numeric(y), pch  = 20, main = "NUE vs CMI", xlab = "nue_ret", ylab = "cmi_ret", col  = "red")
+
+abline(modelo_nue, lwd = 2, col = "blue")
+
+matlines(as.numeric(x)[ord], conf.interval[ord, 2:3], col = "black", lty = 3)
+
+matlines(as.numeric(x)[ord], pred.interval[ord, 2:3], col = "green", lty = 3)
+```
+
+Interpretación: El modelo estima la relación entre los rendimientos logarítmicos por minuto de Nucor (NUE) y los rendimientos logarítmicos por minuto de Cummins (CMI). El coeficiente asociado a nue_ret es 0.1321, lo que implica que, por cada aumento de una unidad en el rendimiento de NUE, el rendimiento esperado de CMI aumenta en aproximadamente 0.1321 unidades. Esta relación es estadísticamente significativa, con un valor t de 15.91 y un p-value menor a 2e-16, lo que confirma, siguiendo el criterio de Gujarati, que sí existe un efecto sistemático de NUE sobre CMI. Aunque el R² es 0.0311, un valor bajo en términos absolutos, esto es normal en datos financieros de alta frecuencia debido a su elevada volatilidad. El gráfico respalda esta interpretación: pese a la dispersión de los puntos, la línea azul muestra una pendiente positiva clara. En pocas palabras, aunque el modelo no explica toda la variación en CMI, sí evidencia que cuando NUE se mueve, CMI tiende a moverse en la misma dirección.
+
+
+Oshkosh vs Cummins
+
+Se crea la variable modelo_osk para presentar el modelo, donde el predictor es osk_ret (rendimientos logarítmicos de los precios de cierre de Oshkosh) y la respuesta es cmi_ret (Cummins). Datos extraídos de Refinitiv, periodo del 1 al 31 de enero de 2026, con intervalo de 1 minuto.
+```{r}
+modelo_osk <- lm(cmi_ret ~ osk_ret, data = df_industrial)
+summary(modelo_osk)
+```
+Con las siguientes funciones se genera el gráfico de dispersión con intervalos de confianza del modelo_osk.
+```{r}
+x <- modelo_osk$model$osk_ret
+y <- modelo_osk$model$cmi_ret
+
+conf.interval <- predict(modelo_osk, interval = "confidence")
+pred.interval <- predict(modelo_osk, interval = "prediction")
+
+ord <- order(as.numeric(x))
+
+plot(as.numeric(x), as.numeric(y), pch  = 20, main = "OSK vs CMI", xlab = "osk_ret", ylab = "cmi_ret", col  = "red")
+
+abline(modelo_osk, lwd = 2, col = "blue")
+
+matlines(as.numeric(x)[ord], conf.interval[ord, 2:3], col = "black", lty = 3)
+
+matlines(as.numeric(x)[ord], pred.interval[ord, 2:3], col = "green", lty = 3)
+```
+
+Interpretación: El modelo estima la relación entre los rendimientos logarítmicos por minuto de Oshkosh (OSK) y los rendimientos logarítmicos por minuto de Cummins (CMI). El coeficiente asociado a osk_ret es 0.07752, lo que implica que, por cada aumento de una unidad en el rendimiento de OSK, el rendimiento esperado de CMI aumenta en aproximadamente 0.07752 unidades. Esta relación es estadísticamente significativa, con un valor t de 12.740 y un p-value menor a 2e-16. Aunque el R² es 0.02017, un valor bajo en términos absolutos, esto es normal en datos financieros de alta frecuencia debido a su alta volatilidad. El gráfico respalda esta interpretación: pese a la dispersión de los puntos, la línea azul muestra una pendiente positiva. En pocas palabras, aunque el modelo no explica toda la variación en CMI, sí evidencia que cuando OSK se mueve, CMI tiende a moverse en la misma dirección.
+
+
+Paccar vs Cummins
+
+Se crea la variable modelo_pcar para presentar el modelo, donde el predictor es pcar_ret (rendimientos logarítmicos de los precios de cierre de Paccar) y la respuesta es cmi_ret (Cummins). Datos extraídos de Refinitiv, periodo del 1 al 31 de enero de 2026, con intervalo de 1 minuto.
+```{r}
+modelo_pcar <- lm(cmi_ret ~ pcar_ret, data = df_industrial)
+summary(modelo_pcar)
+```
+Con las siguientes funciones se genera el gráfico de dispersión con intervalos de confianza del modelo_pcar.
+```{r}
+x <- modelo_pcar$model$pcar_ret
+y <- modelo_pcar$model$cmi_ret
+
+conf.interval <- predict(modelo_pcar, interval = "confidence")
+pred.interval <- predict(modelo_pcar, interval = "prediction")
+
+ord <- order(as.numeric(x))
+
+plot(as.numeric(x), as.numeric(y), pch  = 20, main = "PCAR vs CMI", xlab = "pcar_ret", ylab = "cmi_ret", col  = "red")
+
+abline(modelo_pcar, lwd = 2, col = "blue")
+
+matlines(as.numeric(x)[ord], conf.interval[ord, 2:3], col = "black", lty = 3)
+
+matlines(as.numeric(x)[ord], pred.interval[ord, 2:3], col = "green", lty = 3)
+```
+
+Interpretación: El modelo estima la relación entre los rendimientos logarítmicos por minuto de PACCAR (PCAR) y los rendimientos logarítmicos por minuto de Cummins (CMI). El coeficiente asociado a pcar_ret es 0.1667, lo que implica que, por cada aumento de una unidad en el rendimiento de PCAR, el rendimiento esperado de CMI aumenta en aproximadamente 0.1667 unidades. Esta relación es estadísticamente significativa, con un valor t de 17.651 y un p-value menor a 2e-16. Aunque el R² es 0.0380, un valor bajo en términos absolutos, esto es normal en datos financieros de alta frecuencia debido a su alta volatilidad. El gráfico respalda esta interpretación: pese a la dispersión de los puntos, la línea azul muestra una pendiente positiva clara. En pocas palabras, aunque el modelo no explica toda la variación en CMI, sí evidencia que cuando PCAR se mueve, CMI tiende a moverse en la misma dirección.
+
+
+Tesla vs Cummins
+
+Se crea la variable modelo_tsla para presentar el modelo, donde el predictor es tsla_ret (rendimientos logarítmicos de los precios de cierre de Tesla) y la respuesta es cmi_ret (Cummins). Datos extraídos de Refinitiv, periodo del 1 al 31 de enero de 2026, con intervalo de 1 minuto.
+```{r}
+modelo_tsla <- lm(cmi_ret ~ tsla_ret, data = df_industrial)
+summary(modelo_tsla)
+```
+Con las siguientes funciones se genera el gráfico de dispersión con intervalos de confianza del modelo_tsla.
+```{r}
+x <- modelo_tsla$model$tsla_ret
+y <- modelo_tsla$model$cmi_ret
+
+conf.interval <- predict(modelo_tsla, interval = "confidence")
+pred.interval <- predict(modelo_tsla, interval = "prediction")
+
+ord <- order(as.numeric(x))
+
+plot(as.numeric(x), as.numeric(y), pch  = 20, main = "TSLA vs CMI", xlab = "tsla_ret", ylab = "cmi_ret", col  = "red")
+
+abline(modelo_tsla, lwd = 2, col = "blue")
+
+matlines(as.numeric(x)[ord], conf.interval[ord, 2:3], col = "black", lty = 3)
+
+matlines(as.numeric(x)[ord], pred.interval[ord, 2:3], col = "green", lty = 3)
+```
+
+Interpretación: El modelo estima la relación entre los rendimientos logarítmicos por minuto de Tesla (TSLA) y los rendimientos logarítmicos por minuto de Cummins (CMI). El coeficiente asociado a tsla_ret es 0.07768, lo que implica que, por cada aumento de una unidad en el rendimiento de TSLA, el rendimiento esperado de CMI aumenta en aproximadamente 0.07768 unidades. Esta relación es estadísticamente significativa, con un valor t de 7.472 y un p-value de 8.72e-14, lo que confirma, siguiendo el criterio de Gujarati, que sí existe un efecto sistemático de TSLA sobre CMI. Aunque el R² es 0.0070, un valor bajo en términos absolutos, esto es normal en datos financieros de alta frecuencia debido a su elevada volatilidad. El gráfico respalda esta interpretación: pese a la dispersión de los puntos, la línea azul muestra una pendiente positiva. En pocas palabras, aunque el modelo no explica toda la variación en CMI, sí evidencia que cuando TSLA se mueve, CMI tiende a moverse en la misma dirección.
+
+
+UPS vs Cummins
+
+Se crea la variable modelo_ups para presentar el modelo, donde el predictor es ups_ret (rendimientos logarítmicos de los precios de cierre de UPS) y la respuesta es cmi_ret (Cummins). Datos extraídos de Refinitiv, periodo del 1 al 31 de enero de 2026, con intervalo de 1 minuto.
+```{r}
+modelo_ups <- lm(cmi_ret ~ ups_ret, data = df_industrial)
+summary(modelo_ups)
+```
+Con las siguientes funciones se genera el gráfico de dispersión con intervalos de confianza del modelo_ups.
+```{r}
+x <- modelo_ups$model$ups_ret
+y <- modelo_ups$model$cmi_ret
+
+conf.interval <- predict(modelo_ups, interval = "confidence")
+pred.interval <- predict(modelo_ups, interval = "prediction")
+
+ord <- order(as.numeric(x))
+
+plot(as.numeric(x), as.numeric(y), pch  = 20, main = "UPS vs CMI", xlab = "ups_ret", ylab = "cmi_ret", col  = "red")
+
+abline(modelo_ups, lwd = 2, col = "blue")
+
+matlines(as.numeric(x)[ord], conf.interval[ord, 2:3], col = "black", lty = 3)
+
+matlines(as.numeric(x)[ord], pred.interval[ord, 2:3], col = "green", lty = 3)
+```
+
+Interpretación: El modelo estima la relación entre los rendimientos logarítmicos por minuto de UPS y los rendimientos logarítmicos por minuto de Cummins (CMI). El coeficiente asociado a ups_ret es 0.1274, lo que implica que, por cada aumento de una unidad en el rendimiento de UPS, el rendimiento esperado de CMI aumenta en aproximadamente 0.1274 unidades. Esta relación es estadísticamente significativa, con un valor t de 11.556 y un p-value menor a 2e-16. Aunque el R² es 0.01666, un valor bajo en términos absolutos, esto es normal en datos financieros de alta frecuencia debido a su elevada volatilidad. El gráfico respalda esta interpretación: pese a la dispersión, la línea azul muestra una pendiente positiva clara. En pocas palabras, aunque el modelo no explica toda la variación en CMI, sí evidencia que cuando UPS se mueve, CMI tiende a moverse en la misma dirección.
+
+Se crea la variable modelo_vlo para presentar el modelo, donde el predictor es vlo_ret (rendimientos logarítmicos de los precios de cierre de Valero) y la respuesta es cmi_ret (Cummins). Datos extraídos de Refinitiv, periodo del 1 al 31 de enero de 2026, con intervalo de 1 minuto.
+```{r}
+modelo_vlo <- lm(cmi_ret ~ vlo_ret, data = df_industrial)
+summary(modelo_vlo)
+```
+Con las siguientes funciones se genera el gráfico de dispersión con intervalos de confianza del modelo_vlo.
+```{r}
+x <- modelo_vlo$model$vlo_ret
+y <- modelo_vlo$model$cmi_ret
+
+conf.interval <- predict(modelo_vlo, interval = "confidence")
+pred.interval <- predict(modelo_vlo, interval = "prediction")
+
+ord <- order(as.numeric(x))
+
+plot(as.numeric(x), as.numeric(y), pch  = 20, main = "VLO vs CMI", xlab = "vlo_ret", ylab = "cmi_ret", col  = "red")
+
+abline(modelo_vlo, lwd = 2, col = "blue")
+
+matlines(as.numeric(x)[ord], conf.interval[ord, 2:3], col = "black", lty = 3)
+
+matlines(as.numeric(x)[ord], pred.interval[ord, 2:3], col = "green", lty = 3)
+```
+
+Interpretación: El modelo estima la relación entre los rendimientos logarítmicos por minuto de Valero (VLO) y los rendimientos logarítmicos por minuto de Cummins (CMI). El coeficiente asociado a vlo_ret es 0.03223, lo que implica que, por cada aumento de una unidad en el rendimiento de VLO, el rendimiento esperado de CMI aumenta en aproximadamente 0.03223 unidades. Esta relación es estadísticamente significativa, con un valor t de 4.171 y un p-value de 3.06e-05, lo que confirma, siguiendo el criterio de Gujarati, que sí existe un efecto sistemático de VLO sobre CMI. Aunque el R² es 0.00220, un valor muy bajo, esto es normal en datos financieros de alta frecuencia debido a su alta volatilidad. El gráfico respalda esta interpretación: pese a la gran dispersión, la línea azul muestra una pendiente levemente positiva. En pocas palabras, aunque el modelo explica muy poco de la variación en CMI, sí evidencia que cuando VLO se mueve, CMI tiende a moverse en la misma dirección.
+
+
+Exxon Mobil vs Cummins
+
+Se crea la variable modelo_xom para presentar el modelo, donde el predictor es xom_ret (rendimientos logarítmicos de los precios de cierre de Exxon Mobil) y la respuesta es cmi_ret (Cummins). Datos extraídos de Refinitiv, periodo del 1 al 31 de enero de 2026, con intervalo de 1 minuto.
+```{r}
+modelo_xom <- lm(cmi_ret ~ xom_ret, data = df_industrial)
+summary(modelo_xom)
+```
+Con las siguientes funciones se genera el gráfico de dispersión con intervalos de confianza del modelo_xom.
+```{r}
+x <- modelo_xom$model$xom_ret
+y <- modelo_xom$model$cmi_ret
+
+conf.interval <- predict(modelo_xom, interval = "confidence")
+pred.interval <- predict(modelo_xom, interval = "prediction")
+
+ord <- order(as.numeric(x))
+
+plot(as.numeric(x), as.numeric(y), pch  = 20, main = "XOM vs CMI", xlab = "xom_ret", ylab = "cmi_ret", col  = "red")
+
+abline(modelo_xom, lwd = 2, col = "blue")
+
+matlines(as.numeric(x)[ord], conf.interval[ord, 2:3], col = "black", lty = 3)
+
+matlines(as.numeric(x)[ord], pred.interval[ord, 2:3], col = "green", lty = 3)
+```
+
+Interpretación: El modelo estima la relación entre los rendimientos logarítmicos por minuto de Exxon Mobil (XOM) y los rendimientos logarítmicos por minuto de Cummins (CMI). El coeficiente asociado a xom_ret es 0.1127, lo que implica que, por cada aumento de una unidad en el rendimiento de XOM, el rendimiento esperado de CMI aumenta en aproximadamente 0.1127 unidades. Esta relación es estadísticamente significativa, con un valor t de 7.765 y un p-value de 9.18e-15. Aunque el R² es 0.00759, un valor bajo en términos absolutos, esto es normal en datos financieros de alta frecuencia debido a su elevada volatilidad. El gráfico respalda esta interpretación: pese a la dispersión, la línea azul muestra una pendiente positiva. En pocas palabras, aunque el modelo no explica toda la variación en CMI, sí evidencia que cuando XOM se mueve, CMI tiende a moverse en la misma dirección.

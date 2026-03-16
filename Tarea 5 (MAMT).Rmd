@@ -1,0 +1,807 @@
+---
+title: "Tarea 5"
+output: html_document
+date: "2026-02-13"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+####TAREA_5_MARIANN_ANTONELLI_MORALES_TOBIAS_A01452078
+
+###MODELO 1 CMI vs CAT, DE, PCAR, NUE Y OSK
+
+##Objetivo
+El objetivo del modelo es analizar cómo los rendimientos intradía de Cummins Inc. (CMI) se relacionan con los movimientos simultáneos de empresas que participan en distintas etapas de su ecosistema industrial y cadena de valor. El propósito es capturar factores comunes asociados al ciclo económico, la demanda de camiones clase 8, maquinaria pesada, acero estructural y equipamiento industrial, todos elementos que inciden directa o indirectamente en el desempeño financiero de Cummins.
+En este modelo se utilizó a Cummins (CMI) como variable dependiente debido a su papel como fabricante estratégico de motores diésel, sistemas de potencia y soluciones energéticas para camiones comerciales, construcción, agricultura y aplicaciones industriales. Su desempeño bursátil es altamente sensible a variaciones en la actividad manufacturera, el transporte de carga, la inversión en infraestructura y la producción de maquinaria pesada.
+Las variables independientes seleccionadas reflejan distintos segmentos que impactan la dinámica operativa de Cummins:
+- OEMs de camiones y maquinaria pesada: Caterpillar Inc. (CAT), Deere & Company (DE), PACCAR Inc. (PCAR), Oshkosh Corporation (OSK).
+Estas compañías representan la demanda final de maquinaria, camiones y vehículos especiales donde Cummins participa como proveedor de motores y sistemas de potencia. Sus movimientos bursátiles capturan expectativas sobre órdenes de equipo pesado, inversión en flotas y actividad industrial.
+- Materia prima industrial clave: Nucor Corporation (NUE). 
+Nucor, como uno de los mayores productores de acero en EE. UU., incorpora la dinámica de precios de insumos esenciales para la fabricación de camiones y maquinaria. Sus rendimientos reflejan tanto presión de costos como condiciones de demanda estructural del sector industrial.
+En conjunto, estas cinco variables independientes permiten modelar de manera coherente el ecosistema donde opera Cummins: fabricantes de equipo original (OEMs) que representan la demanda, y productores de acero que representan el componente de insumos industriales. La selección evita redundancias excesivas y mantiene una fuerte coherencia económica, reduciendo problemas severos de multicolinealidad al concentrarse en empresas directamente vinculadas al ciclo industrial pesado.
+
+##Fundamento Tiempo
+Para este análisis se utilizaron precios intradía con una frecuencia de 1 minuto, correspondientes al periodo comprendido entre el 1 y el 10 de febrero de 2026 para todas las acciones consideradas (CMI, CAT, DE, PCAR, NUE y OSK). Los datos fueron extraídos de la plataforma Refinitiv, la cual proporciona precios históricos con sello temporal preciso y consistencia entre activos.
+El intervalo de 1 minuto se eligió porque permite capturar con mayor precisión la transmisión inmediata de información entre empresas que comparten la misma cadena de valor industrial. En sectores como el de maquinaria pesada y motores, los movimientos en expectativas macroeconómicas, precios de insumos o actividad manufacturera se reflejan casi de forma simultánea en las acciones relacionadas. Esta frecuencia intradía asegura una alineación temporal exacta entre todas las series, evita pérdida de información intermedia y aumenta el número de observaciones en una ventana corta, lo que mejora la precisión estadística de los coeficientes y permite identificar co-movimientos dinámicos de alta frecuencia.
+Respecto al periodo del 1 al 10 de febrero de 2026, se seleccionó una ventana breve para mantener un entorno de mercado relativamente homogéneo y evitar la mezcla de distintos regímenes económicos o eventos extraordinarios que pudieran distorsionar el modelo. Febrero es un mes en el que ya se han incorporado expectativas iniciales del año en términos industriales y productivos, pero sin la influencia completa de ciclos extendidos de reportes trimestrales. De esta manera, el análisis se enfoca en capturar la relación estructural entre Cummins y su ecosistema industrial, más que reacciones aisladas a eventos específicos.
+
+##Construcción del Modelo
+Se descargan las librerías readxl y xts. Por una parte readxl permite importar y leer archivos de Excel en R, mientras que xts crear y manipular series de tiempo, especialmente financieras.
+
+```{r}
+library(readxl)
+library(xts)
+```
+
+Con la función read_excel() se importan los datos desde archivos Excel (.xlsx o .xls) directamente a R.
+```{r}
+CMI_1  <- read_excel("CMI_1.xlsx")
+CAT_1  <- read_excel("CAT_1.xlsx")
+DE_1   <- read_excel("DE_1.xlsx")
+PCAR_1 <- read_excel("PCAR_1.xlsx")
+NUE_1  <- read_excel("NUE_1.xlsx")
+OSK_1  <- read_excel("OSK_1.xlsx")
+```
+
+Con la función as.POSIXct() se convierte la columna Exchange Date a un formato de fecha-hora real y se asigna la zona horaria correspondiente para trabajar correctamente con series de tiempo en R.
+```{r}
+CMI_1$`Exchange Date`  <- as.POSIXct(CMI_1$`Exchange Date`,  tz = "America/New_York")
+CAT_1$`Exchange Date`  <- as.POSIXct(CAT_1$`Exchange Date`,  tz = "America/New_York")
+DE_1$`Exchange Date`   <- as.POSIXct(DE_1$`Exchange Date`,   tz = "America/New_York")
+PCAR_1$`Exchange Date` <- as.POSIXct(PCAR_1$`Exchange Date`, tz = "America/New_York")
+NUE_1$`Exchange Date`  <- as.POSIXct(NUE_1$`Exchange Date`,  tz = "America/New_York")
+OSK_1$`Exchange Date`  <- as.POSIXct(OSK_1$`Exchange Date`,  tz = "America/New_York")
+```
+
+Con la función xts() se convierte la columna Close en una serie de tiempo cuyo índice es la fecha-hora, permitiendo
+```{r}
+cmi_close  <- xts(CMI_1$Close,  order.by = CMI_1$`Exchange Date`)
+cat_close  <- xts(CAT_1$Close,  order.by = CAT_1$`Exchange Date`)
+de_close   <- xts(DE_1$Close,   order.by = DE_1$`Exchange Date`)
+pcar_close <- xts(PCAR_1$Close, order.by = PCAR_1$`Exchange Date`)
+nue_close  <- xts(NUE_1$Close,  order.by = NUE_1$`Exchange Date`)
+osk_close  <- xts(OSK_1$Close,  order.by = OSK_1$`Exchange Date`)
+```
+
+Con la función na.omit() se eliminan las observaciones faltantes en los precios, asegurando que los cálculos de rendimientos se realicen únicamente con datos completos y válidos.
+```{r}
+cmi_close  <- na.omit(cmi_close)
+cat_close  <- na.omit(cat_close)
+de_close   <- na.omit(de_close)
+pcar_close <- na.omit(pcar_close)
+nue_close  <- na.omit(nue_close)
+osk_close  <- na.omit(osk_close)
+```
+
+Con la función diff(log()), se transforman los precios en rendimientos logarítmicos por minuto, permitiendo analizar la variación relativa y continua del valor de cada acción. Se crean nuevas variables con los rendimientos logarítmicos por minuto de cada acción.
+```{r}
+cmi_ret <- diff(log(cmi_close))
+cat_ret  <- diff(log(cat_close))
+de_ret   <- diff(log(de_close))
+pcar_ret <- diff(log(pcar_close))
+nue_ret  <- diff(log(nue_close))
+osk_ret  <- diff(log(osk_close))
+```
+
+Con la función merge() se alinean todas las series de rendimientos y, mediante na.omit(), se eliminan las observaciones faltantes para conservar únicamente los minutos en los que todas las acciones tienen información disponible. Para ello, se crea la variable data_industrial1. Con la función colnames() se renombran las columnas de la matriz de rendimientos para identificar claramente cada acción y facilitar los análisis de correlación y regresión.
+```{r}
+data_industrial1 <- merge(cmi_ret, cat_ret, de_ret, pcar_ret, nue_ret, osk_ret)
+
+data_industrial1 <- na.omit(data_industrial1)
+
+colnames(data_industrial1) <- c("CMI","CAT","DE","PCAR","NUE","OSK")
+```
+
+###MULTICOLINEALIDAD 
+
+##Matriz de Correlación
+
+Con la función cor se crea la matriz de correlaciones de data_industrial1. Para ello, se crea la variable cor_matrix que realiza un filtro inicial que permite identificar variables altamente relacionadas entre sí, evitando duplicidad de información antes de aplicar el modelo de regresión lineal múltiple.
+```{r}
+cor_matrix <- cor(data_industrial1)
+cor_matrix
+```
+
+##Mapa de Calor
+Se descarga la librería ggcorrplot y con la función ggcorrplot se grafica un mapa de calor de la correlación de todas las variables del modelo.
+```{r}
+library(ggcorrplot)
+ggcorrplot(cor_matrix)
+```
+Interpretación: El mapa de calor presenta la matriz de correlaciones entre los rendimientos intradía con frecuencia de 1 minuto de Cummins (CMI) y las acciones que conforman su ecosistema industrial: Caterpillar (CAT), John Deere (DE), PACCAR (PCAR), Nucor (NUE) y Oshkosh (OSK), durante el periodo del 1 al 10 de febrero de 2026. En términos generales, se observan correlaciones positivas bajas a moderadas entre la mayoría de las variables, lo cual es consistente con empresas que pertenecen al mismo entorno industrial pero que operan en segmentos distintos dentro de la cadena de valor.
+En particular, la mayor correlación de Cummins se presenta con Caterpillar, con un coeficiente de 0.3104, lo cual sugiere una relación moderada. Este resultado es consistente con la lógica económica, ya que ambas compañías participan en maquinaria pesada y motores industriales, reaccionando de forma similar ante cambios en expectativas de infraestructura y actividad manufacturera. Sin embargo, este nivel de correlación está lejos de valores críticos como 0.80 o superiores, por lo que no implica duplicación de información.
+La relación entre Cummins y PACCAR es de 0.1782, mientras que con John Deere es de 0.1542, lo que indica una asociación positiva pero relativamente baja. Aunque estas empresas comparten exposición al ciclo industrial y a la demanda de equipo pesado, cada una responde a segmentos distintos (camiones clase 8 en el caso de PACCAR y maquinaria agrícola en el caso de Deere), lo cual reduce la sincronización perfecta de movimientos intradía.
+Por su parte, la correlación entre Cummins y Nucor es de apenas 0.0747, siendo la más baja del grupo. Esto es coherente con el hecho de que Nucor representa el componente de materia prima (acero), cuya dinámica depende más de precios de insumos y condiciones del mercado siderúrgico que de la demanda inmediata de motores o maquinaria terminada. Oshkosh muestra una correlación de 0.1504 con Cummins, reflejando una relación moderada-baja vinculada a su enfoque en vehículos especializados y defensa.
+Entre las variables independientes, la correlación más alta se observa entre Caterpillar y Oshkosh (0.2777), seguida por Caterpillar y PACCAR (0.2256) y PACCAR con Oshkosh (0.2106). Estos valores son consistentes con empresas que comparten exposición al sector industrial pesado, pero nuevamente permanecen en rangos moderados. No se detectan correlaciones superiores a 0.40, lo cual reduce significativamente la probabilidad de un problema serio de multicolinealidad.
+En conclusión, los datos numéricos confirman que, aunque existe coherencia sectorial, lo cual es deseable para capturar factores comunes del ciclo industrial, las correlaciones se mantienen en niveles bajos a moderados. Por lo tanto, no existen indicios evidentes de multicolinealidad severa a partir de la matriz de correlación. No obstante, para validar formalmente esta conclusión, sería recomendable complementar el análisis con el cálculo del VIF (Variance Inflation Factor) dentro del modelo de regresión múltiple.
+
+Por lo tanto, se mantienen todas las variables independientes y se crea el modelo500. 
+```{r}
+modelo500 <- lm(CMI ~ CAT + DE + PCAR + NUE + OSK, data = as.data.frame(data_industrial1))
+
+summary(modelo500)
+```
+
+
+##VIF
+Con la función vif se obtiene el VIF del modelo, el cual es una medida que se utiliza en regresión lineal para detectar multicolinealidad, es decir, si las variables independientes están demasiado correlacionadas entre sí. Se descarga la librería car.
+```{r}
+library(car)
+vif(modelo500)
+```
+Reglas prácticas VIF:
+VIF = 1 → no hay correlación con otras variables.
+VIF entre 1 y 5 → correlación baja/moderada (aceptable).
+VIF > 5 → problema de multicolinealidad.
+
+Interpretación: Todos los VIF del modelo están muy cercanos a 1, específicamente entre 1.05 y 1.13. Esto confirma que no existe un problema de multicolinealidad en el modelo. Todas las variables independientes presentan niveles de correlación suficientemente bajos entre sí, lo que garantiza estabilidad en la estimación de los coeficientes y confiabilidad en las pruebas de significancia individual. Esto respalda la validez del modelo de regresión múltiple estimado.
+
+
+###HETEROCEDASTICIDAD
+
+##Residuales
+Se crea la variable residuales_modelo500 para obtener los residuales, en este caso del modelo 500.
+```{r}
+residuales_modelo500 <- modelo500$residuals
+```
+
+De acuerdo al número de observaciones se generará un vector columna que contenga a los números de cada observación, para ello se crea la variable observaciones_modelo500.
+```{r}
+observaciones_modelo500 <- c(1:2421)
+```
+
+Con la función plot, se genera un gráfico de serie:  observaciones (x) vs residuales (y).
+```{r}
+plot(observaciones_modelo500, residuales_modelo500, type = "l")
+```
+Interpretación: El gráfico de residuos del modelo500 muestra que los errores se mantienen alrededor de cero, lo que indica que el modelo no presenta un sesgo sistemático en sus estimaciones. Tampoco se observan tendencias claras o patrones definidos, lo que sugiere que la relación entre las variables está adecuadamente especificada. No obstante, se identifican algunos picos donde la magnitud de los residuos aumenta de forma considerable, reflejando episodios de mayor volatilidad intradía. Esto sugiere que la varianza del error podría no ser completamente constante a lo largo del periodo, lo cual es común en datos financieros de alta frecuencia y puede indicar la presencia de heterocedasticidad. Por ello, aunque el modelo luce estable en promedio, es recomendable aplicar pruebas formales como Breusch-Pagan (BP), Goldfeld-Quandt (GQ) y White para confirmar si existe heterocedasticidad. 
+
+Se elevan al cuadrado los residuales del modelo500, y se crea la variable cuadres_modelo500.
+```{r}
+cuadres_modelo500 = residuales_modelo500^2
+```
+
+Con la función plot se genera el gráfico de dispersión de los residuos al cuadrado del modelo (en el eje x) y los rendimientos logarítmicos de CMI (en el eje y). Este gráfico permite analizar si existe algún patrón sistemático entre la magnitud del error y la variable dependiente, lo cual podría sugerir problemas de heterocedasticidad.
+```{r}
+plot(cuadres_modelo500, data_industrial1$CMI)
+```
+Interpretación: Se observan algunos puntos alejados hacia la derecha del gráfico, correspondientes a valores elevados de los residuos al cuadrado. Estos representan episodios en los que el error del modelo fue considerablemente mayor, lo cual coincide con momentos de mayor volatilidad intradía en los rendimientos. La dispersión no parece seguir un patrón claramente creciente o sistemático, pero sí muestra presencia de valores atípicos que podrían estar asociados a shocks temporales del mercado. En términos prácticos, el gráfico sugiere que, aunque el modelo explica razonablemente bien la mayoría de los movimientos, existen ciertos periodos donde la variabilidad del error aumenta. Esto puede ser una señal de heterocedasticidad leve, algo común en datos financieros de alta frecuencia. Por ello, es recomendable complementar este análisis visual con pruebas formales como Breusch-Pagan, Goldfeld-Quandt y White para confirmar si la varianza del error es constante o no.
+
+##BP Test
+Se descarga la librería lmtest y se utiliza la función bptest para realizar la prueba de Breusch–Pagan y así evaluar si el modelo presenta heterocedasticidad.
+```{r}
+library(lmtest)
+bptest(modelo500)
+```
+Interpretación: El test de Breusch–Pagan se utiliza para detectar la presencia de heterocedasticidad en un modelo de regresión lineal.
+- H₀ (nula): Los errores son homocedásticos (varianza constante).
+- H₁ (alternativa): Existe heterocedasticidad (varianza no constante).
+En este caso, el p-value < 2.2 × 10⁻¹⁶, lo cual es extremadamente pequeño (prácticamente cero). Por lo tanto, se rechaza la hipótesis nula de homocedasticidad. En otras palabras, existe evidencia estadísticamente significativa de heterocedasticidad en el modelo500.
+
+##GQ Test
+Se descarga la librería lmtest y se utiliza la función gqtest para realizar la prueba de Goldfeld–Quandt, y así evaluar si el modelo presenta heterocedasticidad.
+```{r}
+library(lmtest)
+
+gqtest(modelo500, order.by = ~ CMI, data = as.data.frame(data_industrial1))
+
+```
+Interpretación: El test de Goldfeld–Quandt se utiliza para detectar heterocedasticidad comparando la varianza de los errores entre dos segmentos de la muestra.
+- H₀ (nula): La varianza de los errores es constante (homocedasticidad).
+- H₁ (alternativa): La varianza aumenta del segmento 1 al 2 (heterocedasticidad).
+En este caso, el p-value = 0.9945, el cual es muy alto y mayor que cualquier nivel de significancia convencional (0.10, 0.05 o 0.01). Por lo tanto, se acepta la hipótesis nula de homocedasticidad. En otras palabras, según el test de Goldfeld–Quandt, no existe evidencia estadística de heterocedasticidad en el modelo500.
+
+##W Test
+Se descarga la librería lmtest y se utiliza la función bptest para realizar la prueba de White, con el objetivo de evaluar si el modelo presenta heterocedasticidad. Esta prueba permite analizar si la varianza de los errores es constante o si depende de los valores ajustados y sus términos cuadráticos, proporcionando así una verificación más general sobre la presencia de heterocedasticidad en el modelo de regresión.
+```{r}
+library(lmtest)
+
+bptest(modelo500, ~ CAT + DE + PCAR + NUE + OSK + I(CAT^2) + I(DE^2) + I(PCAR^2) + I(NUE^2) + I(OSK^2), data = as.data.frame(data_industrial1))
+```
+Interpretación: El test de White se utiliza para detectar heterocedasticidad en un modelo de regresión.
+- H₀ (nula): Los errores son homocedásticos (varianza constante).
+- H₁ (alternativa): Existe heterocedasticidad (varianza no constante).
+En este caso, el p-value < 2.2 × 10⁻¹⁶, lo cual es extremadamente pequeño. Por lo tanto, se rechaza la hipótesis nula de homocedasticidad. En otras palabras, existe evidencia estadísticamente significativa de heterocedasticidad en el modelo500 según la prueba de White.
+
+En conjunto, aunque la prueba de Goldfeld–Quandt no detecta evidencia de heterocedasticidad, tanto la prueba de Breusch–Pagan como la prueba de White arrojan resultados estadísticamente significativos. Por lo tanto, se concluye que el modelo presenta heterocedasticidad.
+
+##Corrección de Heterocedasticidad
+
+#Mínimos Cuadrados Generalizados
+Para corregir el problema de heterocedasticidad detectado en el modelo, se aplica el método de Generalized Least Squares (GLS) en su forma factible (FGLS). En primer lugar, se estima el modelo original mediante Mínimos Cuadrados Ordinarios (OLS) para obtener los residuos. Posteriormente, se construye un modelo auxiliar donde se regresa el logaritmo de los residuos al cuadrado contra las variables independientes, con el objetivo de estimar la estructura de la varianza del error. A partir de esta estimación se calculan pesos inversamente proporcionales a la varianza estimada.
+Finalmente, se re-estima el modelo utilizando estos pesos, lo que permite ajustar las observaciones con mayor varianza y corregir la heterocedasticidad. De esta manera, aunque los coeficientes pueden no cambiar sustancialmente, los errores estándar se ajustan, garantizando inferencias estadísticas más confiables y consistentes.
+```{r}
+modelo500 <- lm(CMI ~ CAT + DE + PCAR + NUE + OSK, data = as.data.frame(data_industrial1))
+
+resi <- resid(modelo500)
+
+varfunc.ols <- lm(log(resi^2) ~ CAT + DE + PCAR + NUE + OSK,
+data = as.data.frame(data_industrial1))
+
+varfunc <- exp(fitted(varfunc.ols))
+
+modelo500_gls <- lm(CMI ~ CAT + DE + PCAR + NUE + OSK,
+data = as.data.frame(data_industrial1), weights = 1/sqrt(varfunc))
+
+summary(modelo500_gls)
+```
+Interpretación: Tras aplicar GLS para corregir la heterocedasticidad, el modelo sigue siendo globalmente significativo (F-statistic = 67.18, p < 2.2e-16), lo que indica que, en conjunto, las variables industriales explican de manera estadísticamente relevante los rendimientos logarítmicos de CMI. A nivel individual, CAT (0.2984) es la variable con mayor impacto y altamente significativa, seguida por PCAR (0.1454) y DE (0.1093), lo que confirma la fuerte relación de CMI con fabricantes de maquinaria y camiones. OSK (0.0471) también resulta significativa, aunque con menor magnitud. En cambio, NUE (0.0260) no es estadísticamente significativa, lo que sugiere que el sector del acero no tuvo un efecto directo relevante en el periodo analizado. El R² ajustado de 0.1203 es consistente con datos financieros intradía, donde gran parte de la variación es aleatoria. En general, el método GLS mantiene la coherencia económica del modelo y corrige los errores estándar, permitiendo inferencias más confiables.
+
+
+###AUTOCORRELACIÓN
+En este procedimiento se utiliza la librería dynlm para estimar un modelo dinámico con el objetivo de verificar la existencia de autocorrelación en los rendimientos logarítmicos de CMI. Primero, se convierte la serie de rendimientos en un objeto de tiempo (ts) para poder trabajarla como serie temporal. Posteriormente, se estima un modelo autorregresivo de primer orden (AR(1)), donde los rendimientos actuales se explican por su propio rezago. De esta forma, se analiza si el comportamiento pasado de la serie influye significativamente en el periodo actual, lo cual permitiría identificar la presencia de autocorrelación en los errores del modelo.
+```{r}
+library(dynlm)
+
+serie_cmi <- ts(data_industrial1$CMI)
+
+reg1_cmi <- dynlm(serie_cmi ~ L(serie_cmi))
+
+summary(reg1_cmi)
+```
+Interpretación: El coeficiente del rezago es -0.039 con un p-value = 0.0551, lo que indica que no es estadísticamente significativo al 5%, aunque es marginal al 10%. Además, el R² = 0.0015, lo que muestra que el rendimiento pasado explica una proporción prácticamente nula del rendimiento actual. En términos prácticos, no existe evidencia sólida de autocorrelación de primer orden en los rendimientos de CMI. A lo sumo, podría considerarse una evidencia débil al 10%, pero el efecto es muy pequeño y económicamente poco relevante. Esto es consistente con la naturaleza de los rendimientos financieros. 
+
+
+###Conclusión
+Con base en las pruebas realizadas, se obtienen los siguientes resultados generales:
+
+Multicolinealidad: Los VIF se encuentran muy cercanos a 1, lo que indica que no existe colinealidad relevante entre las variables independientes. Cada acción aporta información propia dentro del modelo, por lo que no es necesario eliminar ninguna variable.
+
+Heterocedasticidad: Las pruebas BP y White detectaron heterocedasticidad, pero esta fue corregida mediante GLS, obteniendo coeficientes estables y económicamente coherentes. Por lo tanto, el modelo ya está ajustado y no requiere modificaciones adicionales.
+
+Autocorrelación: El modelo AR(1) mostró que no existe evidencia sólida de autocorrelación de primer orden en los rendimientos de CMI, lo cual es consistente con el comportamiento típico de retornos financieros de alta frecuencia.
+
+En conjunto, el modelo es estadísticamente válido tras aplicar la corrección por heterocedasticidad, no presenta problemas de multicolinealidad ni evidencia relevante de autocorrelación. Por ello, no es necesario eliminar variables ni reespecificar el modelo.
+
+###ESTRATEGIA DE PORTAFOLIO
+El portafolio quedaría enfocado en el ecosistema industrial pesado, con mayor peso en las empresas que demostraron mayor influencia estadística sobre CMI (CAT, PCAR y DE), y menor peso en las que aportan diversificación sectorial (OSK y NUE).
+Para ello se comprarán 3000 acciones de CMI, CAT Y DE; 2000 acciones de PCAR y OSK; y 1000 acciones de NUE. 
+
+Dado que el modelo es estadísticamente consistente y corregido, la estrategia no requiere ajustes estructurales, sino únicamente un balance óptimo del capital para mejorar diversificación y captura de movimientos sectoriales.
+
+
+
+###MODELO 2 PH vs EMR, HON, RTX, BA y XOM
+
+##Objetivo
+El objetivo del modelo es analizar cómo los rendimientos intradía de Parker Hannifin (PH) se relacionan con los movimientos simultáneos de empresas vinculadas a su ecosistema industrial, aeroespacial/defensa y energético. La intención es capturar factores comunes asociados al ciclo económico, la demanda de manufactura avanzada, actividad aeroespacial/defensa, automatización industrial y sensibilidad a energía/commodities, elementos que pueden influir directa o indirectamente en el desempeño bursátil de PH.
+
+En este modelo se utiliza a Parker Hannifin (PH) como variable dependiente por su exposición a manufactura industrial, componentes y sistemas (hidráulicos, neumáticos, motion & control) con presencia relevante en aplicaciones aeroespaciales e industriales.
+Las variables independientes representan distintos frentes del entorno de PH:
+- Industrial/automatización: Emerson (EMR) y Honeywell (HON), por su relación con automatización, control, instrumentación y actividad industrial.
+- Aeroespacial/defensa: RTX (RTX) y Boeing (BA), para capturar choques del sector aeroespacial, defensa y demanda de plataformas/servicios.
+- Energía: Exxon Mobil (XOM), para incluir el canal de energía/commodities y su efecto en sentimiento de mercado y costos/actividad económica.
+
+##Fundamento Tiempo
+Para este análisis se utilizaron precios intradía con una frecuencia de 1 minuto, correspondientes al periodo comprendido entre el 1 y el 10 de febrero de 2026 para todas las acciones consideradas (PH, EMR, HON, RTX, BA y XOM). Los datos se extraen desde Refinitiv, ya que ofrece series intradía con sello temporal consistente entre activos. El intervalo de 1 minuto se eligió para capturar la transmisión inmediata de información entre empresas del mismo ecosistema industrial, aeroespacial y energético. La frecuencia intradía permite identificar co-movimientos contemporáneos de alta frecuencia, asegurar alineación temporal exacta entre series y aumentar el número de observaciones, mejorando así la eficiencia y precisión estadística del modelo.
+
+El periodo del 1 al 10 de febrero de 2026 se seleccionó para mantener un entorno relativamente homogéneo y evitar cambios de régimen o eventos extraordinarios que pudieran distorsionar la estimación. Además, Febrero es un mes en el que el mercado ya ha incorporado las expectativas iniciales del año en términos industriales, energéticos y de inversión, pero aún sin la influencia completa de ciclos prolongados de reportes trimestrales. Esto permite enfocarse en la relación estructural contemporánea entre la empresa dependiente y su entorno industrial, más que en reacciones aisladas a eventos específicos.
+
+##Construcción del Modelo
+Se descargan las librerías readxl y xts. Por una parte readxl permite importar archivos Excel en R, mientras que xts permite crear y manipular series de tiempo financieras.
+```{r}
+library(readxl)
+library(xts)
+```
+
+Con la función read_excel() se importan los datos desde archivos Excel (.xlsx) directamente a R.
+```{r}
+PH_1  <- read_excel("PH_1.xlsx")
+EMR_1 <- read_excel("EMR_1.xlsx")
+HON_1 <- read_excel("HON_1.xlsx")
+RTX_1 <- read_excel("RTX_1.xlsx")
+BA_1  <- read_excel("BA_1.xlsx")
+XOM_1 <- read_excel("XOM_1.xlsx")
+```
+
+Con la función as.POSIXct() se convierte la columna Exchange Date a formato fecha-hora y se asigna zona horaria.
+```{r}
+PH_1$`Exchange Date`  <- as.POSIXct(PH_1$`Exchange Date`,  tz = "America/New_York")
+EMR_1$`Exchange Date` <- as.POSIXct(EMR_1$`Exchange Date`, tz = "America/New_York")
+HON_1$`Exchange Date` <- as.POSIXct(HON_1$`Exchange Date`, tz = "America/New_York")
+RTX_1$`Exchange Date` <- as.POSIXct(RTX_1$`Exchange Date`, tz = "America/New_York")
+BA_1$`Exchange Date`  <- as.POSIXct(BA_1$`Exchange Date`,  tz = "America/New_York")
+XOM_1$`Exchange Date` <- as.POSIXct(XOM_1$`Exchange Date`, tz = "America/New_York")
+```
+
+Con la función xts() se convierte la columna Close en una serie de tiempo indexada por fecha-hora.
+```{r}
+ph_close  <- xts(PH_1$Close,  order.by = PH_1$`Exchange Date`)
+emr_close <- xts(EMR_1$Close, order.by = EMR_1$`Exchange Date`)
+hon_close <- xts(HON_1$Close, order.by = HON_1$`Exchange Date`)
+rtx_close <- xts(RTX_1$Close, order.by = RTX_1$`Exchange Date`)
+ba_close  <- xts(BA_1$Close,  order.by = BA_1$`Exchange Date`)
+xom_close <- xts(XOM_1$Close, order.by = XOM_1$`Exchange Date`)
+```
+
+Con la función na.omit() se eliminan observaciones faltantes en precios.
+```{r}
+ph_close  <- na.omit(ph_close)
+emr_close <- na.omit(emr_close)
+hon_close <- na.omit(hon_close)
+rtx_close <- na.omit(rtx_close)
+ba_close  <- na.omit(ba_close)
+xom_close <- na.omit(xom_close)
+```
+
+Con diff(log()) se transforman precios en rendimientos logarítmicos por minuto.
+```{r}
+ph_ret  <- diff(log(ph_close))
+emr_ret <- diff(log(emr_close))
+hon_ret <- diff(log(hon_close))
+rtx_ret <- diff(log(rtx_close))
+ba_ret  <- diff(log(ba_close))
+xom_ret <- diff(log(xom_close))
+```
+
+Con merge() se alinean todas las series y con na.omit() se conservan únicamente minutos con información completa. Se crea data_ph1 y se renombran columnas.
+```{r}
+data_ph1 <- merge(ph_ret, emr_ret, hon_ret, rtx_ret, ba_ret, xom_ret)
+
+data_ph1 <- na.omit(data_ph1)
+
+colnames(data_ph1) <- c("PH","EMR","HON","RTX","BA","XOM")
+```
+
+###MULTICOLINEALIDAD
+
+##Matriz de Correlación
+
+Con la función cor se crea la matriz de correlaciones de data_ph1.
+```{r}
+cor_matrix2 <- cor(data_ph1)
+cor_matrix2
+```
+
+#Mapa de Calor
+Se descarga ggcorrplot y se grafica el mapa de calor.
+```{r}
+library(ggcorrplot)
+ggcorrplot(cor_matrix2)
+```
+Interpretación: En el modelo con PH como variable dependiente, las correlaciones entre las variables explicativas (EMR, HON, RTX, BA y XOM) son positivas y de baja magnitud, lo cual es favorable para la estimación.
+La correlación más alta es entre RTX y BA (0.2456), seguida por HON y BA (0.1711) y EMR y HON (0.1333). El resto de las relaciones se ubican principalmente entre 0.03 y 0.12, por ejemplo: EMR-RTX (0.1215), HON-RTX (0.1040), RTX-XOM (0.0881) y EMR-XOM (0.0399).
+Dado que ninguna correlación supera 0.30, no se anticipan problemas de multicolinealidad severa en el modelo. Esto sugiere que las variables explicativas aportan información diferenciada para explicar los movimientos de PH, permitiendo estimaciones más estables y confiables. Por lo tanto, no existen indicios evidentes de multicolinealidad severa a partir de la matriz de correlación. No obstante, para validar formalmente esta conclusión, sería recomendable complementar el análisis con el cálculo del VIF (Variance Inflation Factor) dentro del modelo de regresión múltiple.
+
+Por lo tanto, se mantienen todas las variables independientes y se crea el modelo600. 
+```{r}
+modelo600 <- lm(PH ~ EMR + HON + RTX + BA + XOM, data = as.data.frame(data_ph1))
+summary(modelo600)
+```
+
+##VIF
+Se descarga la librería car y con la función vif se obtiene el VIF del modelo.
+```{r}
+library(car)
+vif(modelo600)
+```
+Reglas prácticas VIF: 
+VIF = 1 → no hay correlación con otras variables. 
+VIF entre 1 y 5 → correlación baja/moderada (aceptable). 
+VIF > 5 → problema de multicolinealidad.
+Interpretación: Todos los VIF del modelo se encuentran prácticamente en 1, específicamente entre 1.013 y 1.094. Esto confirma que no existe un problema de multicolinealidad en el modelo con PH como variable dependiente.
+Las variables independientes (EMR, HON, RTX, BA y XOM) presentan niveles de correlación muy bajos entre sí, lo que garantiza estabilidad en la estimación de los coeficientes y evita inflación en sus varianzas.
+En consecuencia, las pruebas de significancia individual son confiables y la interpretación económica de los coeficientes es sólida. Esto respalda la validez estadística del modelo de regresión múltiple estimado.
+
+###HETEROCEDASTICIDAD
+
+##Residuales
+ Se crea la variable residuales_modelo600 para obtener los residuales, en este caso del modelo 600.
+```{r}
+residuales_modelo600 <- resid(modelo600)
+```
+
+De acuerdo al número de observaciones se generará un vector columna que contenga a los números de cada observación, para ello se crea la variable observaciones_modelo600.
+```{r}
+observaciones_modelo600 <- c(1:2560)
+```
+
+Con la función plot, se genera un gráfico de serie: observaciones (x) vs residuales (y).
+```{r}
+plot(observaciones_modelo600, residuales_modelo600, type = "l")
+```
+Interpretación: El gráfico de residuos del modelo600 muestra que los errores oscilan alrededor de cero durante la mayor parte del periodo, lo que indica que el modelo no presenta un sesgo sistemático en sus estimaciones. No se observan tendencias persistentes ni patrones estructurales claros, lo que sugiere que la especificación funcional del modelo es adecuada.
+Sin embargo, se identifican varios picos pronunciados, especialmente en la parte media del periodo, donde la magnitud de los residuos aumenta considerablemente, alcanzando valores cercanos a ±0.03. Estos episodios reflejan momentos de mayor volatilidad intradía, típicos en datos financieros de alta frecuencia.
+La presencia de estos clusters de volatilidad sugiere que la varianza del error podría no ser completamente constante a lo largo del tiempo, lo cual es consistente con posibles efectos de heterocedasticidad. En consecuencia, aunque el modelo luce estable en promedio, es recomendable aplicar pruebas formales como Breusch-Pagan (BP), Goldfeld-Quandt (GQ) y White para confirmar si existe heterocedasticidad. 
+
+Se elevan al cuadrado los residuales del modelo600, y se crea la variable cuadres_modelo600.
+```{r}
+cuadres_modelo600 = residuales_modelo600^2
+```
+
+Con la función plot se genera el gráfico de dispersión de los residuos al cuadrado del modelo (en el eje x) y los rendimientos logarítmicos de PH (en el eje y). Este gráfico permite analizar si existe algún patrón sistemático entre la magnitud del error y la variable dependiente, lo cual podría sugerir problemas de heterocedasticidad.
+```{r}
+plot(cuadres_modelo600, data_ph1$PH)
+```
+Interpretación: Se observan algunos puntos alejados hacia la derecha del gráfico, que corresponden a valores elevados de los residuos al cuadrado y reflejan episodios donde el error del modelo fue mayor, probablemente asociados a momentos de alta volatilidad intradía.
+La mayoría de las observaciones se concentra cerca del origen, lo que indica que en general el modelo mantiene errores pequeños y estables. No se aprecia un patrón claramente sistemático en la dispersión, aunque sí existen valores atípicos puntuales.
+En conjunto, el gráfico sugiere una posible heterocedasticidad leve, común en datos financieros de alta frecuencia, por lo que es recomendable confirmarla mediante pruebas formales como Breusch-Pagan, Goldfeld-Quandt o White.
+
+##BP Test
+Se descarga la librería lmtest y se utiliza la función bptest para realizar la prueba de Breusch–Pagan y así evaluar si el modelo presenta heterocedasticidad.
+```{r}
+library(lmtest)
+bptest(modelo600)
+```
+Interpretación: El test de Breusch–Pagan se utiliza para detectar la presencia de heterocedasticidad en un modelo de regresión lineal.
+- H₀ (nula): Los errores son homocedásticos (varianza constante).
+- H₁ (alternativa): Existe heterocedasticidad (varianza no constante).
+En este caso, el estadístico es BP = 86.52 con 5 grados de libertad y un p-value < 2.2 × 10⁻¹⁶, lo cual es extremadamente pequeño (prácticamente cero).
+Por lo tanto, se rechaza la hipótesis nula de homocedasticidad. En otras palabras, existe evidencia estadísticamente significativa de heterocedasticidad en el modelo600, lo que indica que la varianza de los errores no es constante a lo largo del periodo analizado.
+
+##GQ Test
+Se descarga la librería lmtest y se utiliza la función gqtest para realizar la prueba de Goldfeld–Quandt, y así evaluar si el modelo presenta heterocedasticidad.
+```{r}
+library(lmtest)
+gqtest(modelo600, order.by = ~ PH, data = as.data.frame(data_ph1))
+```
+Interpretación: El test de Goldfeld–Quandt se utiliza para detectar heterocedasticidad comparando la varianza de los errores entre dos segmentos de la muestra.
+- H₀ (nula): La varianza de los errores es constante (homocedasticidad).
+- H₁ (alternativa): La varianza aumenta del segmento 1 al 2 (heterocedasticidad).
+En este caso, el estadístico es GQ = 1.0711, con df1 = 1274 y df2 = 1274, y un p-value = 0.1101, el cual es mayor que los niveles de significancia convencionales de 0.10, 0.05 y 0.01.
+Por lo tanto, se acepta la hipótesis nula de homocedasticidad. En otras palabras, según el test de Goldfeld–Quandt, no existe evidencia estadísticamente significativa de que la varianza de los errores aumente entre los segmentos en el modelo600.
+
+#W Test
+Se descarga la librería lmtest y se utiliza la función bptest para realizar la prueba de White, con el objetivo de evaluar si el modelo presenta heterocedasticidad. Esta prueba permite analizar si la varianza de los errores es constante o si depende de los valores ajustados y sus términos cuadráticos, proporcionando así una verificación más general sobre la presencia de heterocedasticidad en el modelo de regresión.
+```{r}
+library(lmtest)
+
+bptest(modelo600, ~ EMR + HON + RTX + BA + XOM + I(EMR^2) + I(HON^2) + I(RTX^2) + I(BA^2) + I(XOM^2), data = as.data.frame(data_ph1))
+```
+Interpretación: El test de White se utiliza para detectar heterocedasticidad en un modelo de regresión.
+- H₀ (nula): Los errores son homocedásticos (varianza constante).
+- H₁ (alternativa): Existe heterocedasticidad (varianza no constante).
+En este caso, el estadístico es BP = 97.764 con df = 10 y un p-value < 2.2 × 10⁻¹⁶, lo cual es extremadamente pequeño.
+Por lo tanto, se rechaza la hipótesis nula de homocedasticidad. En otras palabras, existe evidencia estadísticamente significativa de heterocedasticidad en el modelo600 según la prueba de White.
+
+En conjunto, aunque la prueba de Goldfeld–Quandt no detecta evidencia de heterocedasticidad, tanto la prueba de Breusch–Pagan como la prueba de White arrojan resultados altamente significativos. Por lo tanto, se concluye que el modelo presenta heterocedasticidad, algo consistente con la naturaleza de datos financieros de alta frecuencia.
+
+##Corrección de Heterocedasticidad
+
+#Mínimos Cuadrados Generalizados
+Para corregir el problema de heterocedasticidad detectado en el modelo, se aplica el método de Generalized Least Squares (GLS) en su forma factible (FGLS). En primer lugar, se estima el modelo original mediante Mínimos Cuadrados Ordinarios (OLS) para obtener los residuos. Posteriormente, se construye un modelo auxiliar donde se regresa el logaritmo de los residuos al cuadrado contra las variables independientes, con el objetivo de estimar la estructura de la varianza del error. A partir de esta estimación se calculan pesos inversamente proporcionales a la varianza estimada. Finalmente, se re-estima el modelo utilizando estos pesos, lo que permite ajustar las observaciones con mayor varianza y corregir la heterocedasticidad. De esta manera, aunque los coeficientes pueden no cambiar sustancialmente, los errores estándar se ajustan, garantizando inferencias estadísticas más confiables y consistentes.
+```{r}
+modelo600 <- lm(PH ~ EMR + HON + RTX + BA + XOM, data = as.data.frame(data_ph1))
+
+resi2 <- resid(modelo600)
+
+varfunc.ols2 <- lm(log(resi2^2) ~ EMR + HON + RTX + BA + XOM, data = as.data.frame(data_ph1))
+
+varfunc2 <- exp(fitted(varfunc.ols2))
+
+modelo600_gls <- lm(PH ~ EMR + HON + RTX + BA + XOM, data = as.data.frame(data_ph1), weights = 1/sqrt(varfunc2))
+
+summary(modelo600_gls)
+```
+Interpretación: Tras aplicar GLS para corregir la heterocedasticidad, el modelo sigue siendo globalmente significativo (F-statistic = 26.53, p < 2.2e-16), lo que indica que, en conjunto, las variables industriales y energéticas explican de manera estadísticamente relevante los rendimientos logarítmicos de PH.
+A nivel individual, HON (0.2107) es la variable con mayor impacto y altamente significativa (p < 0.001), seguida por BA (0.0999) y XOM (0.0939), ambas también altamente significativas. EMR (0.0622) y RTX (0.0519) resultan igualmente significativas, aunque con menor magnitud relativa. Esto confirma que PH mantiene una fuerte relación con el ecosistema industrial diversificado (automatización, aeroespacial y energía).
+El intercepto no es estadísticamente significativo, lo cual es consistente con modelos de rendimientos financieros.
+El R² ajustado de 0.0475 es coherente con datos financieros intradía, donde una gran proporción de la variación es explicada por factores no sistemáticos o ruido de mercado. En general, el método GLS mantiene la coherencia económica del modelo y corrige los errores estándar ante la heterocedasticidad detectada, permitiendo inferencias más robustas y confiables.
+
+###AUTOCORRELACIÓN
+En este procedimiento se utiliza la librería dynlm para estimar un modelo dinámico con el objetivo de verificar la existencia de autocorrelación en los rendimientos logarítmicos de PH. Primero, se convierte la serie de rendimientos en un objeto de tiempo (ts) para poder trabajarla como serie temporal. Posteriormente, se estima un modelo autorregresivo de primer orden (AR(1)), donde los rendimientos actuales se explican por su propio rezago. De esta forma, se analiza si el comportamiento pasado de la serie influye significativamente en el periodo actual, lo cual permitiría identificar la presencia de autocorrelación en los errores del modelo.
+```{r}
+library(dynlm)
+
+serie_ph <- ts(data_ph1$PH)
+
+reg1_ph <- dynlm(serie_ph ~ L(serie_ph))
+
+summary(reg1_ph)
+```
+Interpretación: El coeficiente del rezago es -0.2873 con un p-value < 2e-16, lo que indica que es altamente estadísticamente significativo al 1%. Esto confirma la existencia de autocorrelación de primer orden en los rendimientos de PH. El signo negativo sugiere un efecto de reversión de corto plazo, es decir, movimientos positivos tienden a ser seguidos por ajustes negativos en el siguiente periodo, y viceversa.
+Además, el R² = 0.0825, lo que implica que el rendimiento pasado explica aproximadamente un 8.25% del rendimiento actual. Aunque no es un porcentaje elevado, en datos financieros intradía representa un nivel relevante de dependencia temporal.
+En términos prácticos, sí existe evidencia sólida de autocorrelación de primer orden en los rendimientos de PH. Este resultado sugiere que el comportamiento pasado tiene influencia estadísticamente significativa sobre el periodo actual, lo cual es consistente con dinámicas de microestructura de mercado y ajustes de corto plazo en series financieras de alta frecuencia. La presencia de autocorrelación de primer orden sugiere dependencia temporal en los rendimientos de PH. 
+
+Por lo tanto, para garantizar inferencias robustas, es recomendable utilizar errores estándar corregidos por autocorrelación con prueba Newey–West. Se cargan las librerías lmtest y sandwich.
+```{r}
+library(lmtest)
+library(sandwich)
+```
+
+Se estimaron los coeficientes del modelo utilizando errores estándar robustos de Newey-West con un rezago de 1 periodo, con el objetivo de corregir posibles problemas de autocorrelación en los residuos. Esta corrección permite obtener inferencias estadísticas más consistentes sin alterar los coeficientes estimados por MCO.
+```{r}
+coeftest(modelo600, vcov = NeweyWest(modelo600, lag = 1, prewhite = FALSE))
+```
+Interpretación: Al estimar el modelo con errores estándar robustos de Newey-West (lag = 1), se observa que tres variables resultan estadísticamente significativas: HON, RTX y BA.
+En particular, HON presenta el mayor impacto económico y estadístico, con un coeficiente de 0.2140 y un p-value de 2.92e-06, lo que indica significancia al 0.1%. Esto implica que un incremento de 1% en el rendimiento de HON se asocia con un aumento aproximado de 0.214% en la variable dependiente, manteniendo constantes las demás variables.
+Asimismo, RTX muestra un coeficiente de 0.0599 (p = 0.0091) y BA un coeficiente de 0.0894 (p = 0.0091), ambos significativos al 1%, confirmando una relación positiva y estadísticamente robusta.
+Por otro lado, EMR (coef. = 0.0586; p = 0.3350) y XOM (coef. = 0.0828; p = 0.1593) no resultan estadísticamente significativas, por lo que no existe evidencia suficiente para afirmar que influyan en la variable dependiente dentro de esta especificación.
+En términos generales, el modelo sugiere que el comportamiento de la variable dependiente está principalmente explicado por empresas del sector industrial/aeroespacial (HON, RTX y BA), mientras que el efecto de EMR y XOM no es estadísticamente concluyente bajo la corrección robusta aplicada.
+
+###Conclusión
+Con base en las pruebas realizadas para el modelo con PH como variable dependiente, se obtienen los siguientes resultados generales:
+
+Multicolinealidad: Los VIF se encuentran entre 1.013 y 1.094, valores prácticamente iguales a 1, lo que indica ausencia de colinealidad relevante entre EMR, HON, RTX, BA y XOM. Cada variable aporta información diferenciada dentro del modelo, por lo que no es necesario eliminar ninguna.
+
+Heterocedasticidad: Las pruebas de Breusch–Pagan y White detectaron heterocedasticidad (p-value < 2.2e-16). Sin embargo, el modelo fue corregido mediante GLS, obteniendo coeficientes estables, significativos y económicamente coherentes. Por lo tanto, el problema fue adecuadamente ajustado y no compromete la validez de la inferencia.
+
+Autocorrelación: El modelo AR(1) mostró evidencia estadísticamente significativa de autocorrelación de primer orden (coeficiente = -0.2873, p < 2e-16), indicando un efecto de reversión de corto plazo en los rendimientos de PH. Este comportamiento es consistente con dinámicas de microestructura en datos financieros intradía. Por ende, no es necesario eliminar variables, sino mantener la especificación ajustada. 
+
+###ESTRATEGIA DE PORTAFOLIO
+El portafolio quedaría enfocado en el ecosistema industrial–aeroespacial–energético vinculado a PH, con mayor peso en las empresas que demostraron mayor influencia estadística sobre PH (HON, BA y XOM), y menor peso en aquellas que aportan diversificación dentro del sector (EMR y RTX).
+Para ello se comprarán 3000 acciones de PH y HON; 2000 acciones de BA y XOM; 1000 acciones de EMR y RTX. Dado que el modelo es estadísticamente consistente y fue corregido por heterocedasticidad y autocorrelación, la estrategia no requiere ajustes estructurales, sino únicamente una asignación eficiente del capital para capturar los movimientos del bloque industrial y mantener diversificación sectorial.
+
+
+
+###MODELO 3 LLY vs JNJ, PFE, UNH y ABBV
+
+##Objetivo
+El objetivo del modelo es analizar cómo los rendimientos intradía de Eli Lilly (LLY) se relacionan con los movimientos simultáneos de empresas clave del sector salud, incluyendo farmacéuticas y servicios/aseguramiento. El propósito es capturar factores comunes asociados al entorno del sector salud, expectativas regulatorias, cambios en demanda de medicamentos, sentimiento del mercado y choques sectoriales que pueden reflejarse de forma conjunta en los rendimientos intradía.
+En este modelo se utiliza a Eli Lilly (LLY) como variable dependiente debido a su papel como farmacéutica líder con exposición relevante a innovación, medicamentos de alto impacto y sensibilidad a noticias clínicas, aprobaciones regulatorias y expectativas de crecimiento del sector. Las variables independientes representan distintos segmentos del ecosistema salud: Johnson & Johnson (JNJ) y Pfizer (PFE) como farmacéuticas diversificadas, AbbVie (ABBV) como biopharma con alta exposición a portafolios de medicamentos, y UnitedHealth (UNH) como actor clave del lado de aseguramiento y servicios de salud, capturando riesgos y expectativas del sistema de salud en general.
+
+##Fundamento Tiempo
+Para este análisis se utilizaron precios intradía con una frecuencia de 1 minuto, correspondientes al periodo comprendido entre el 1 y el 10 de febrero de 2026 para todas las acciones consideradas (LLY, JNJ, PFE, UNH y ABBV). Los datos fueron extraídos de la plataforma Refinitiv, la cual proporciona precios históricos con sello temporal preciso y consistencia entre activos.
+El intervalo de 1 minuto se eligió porque permite capturar con mayor precisión la transmisión inmediata de información entre empresas del mismo sector, especialmente cuando existen choques comunes (noticias regulatorias, resultados clínicos, expectativas macro y rotación sectorial). Esta frecuencia intradía asegura alineación temporal exacta entre series, evita pérdida de información intermedia y aumenta el número de observaciones en una ventana corta, mejorando la precisión estadística de las estimaciones y permitiendo identificar co-movimientos de alta frecuencia.
+Respecto al periodo del 1 al 10 de febrero de 2026, se seleccionó una ventana breve para mantener un entorno de mercado relativamente homogéneo y evitar la mezcla de distintos regímenes económicos o eventos extraordinarios que pudieran distorsionar el modelo. De esta manera, el análisis se enfoca en capturar la relación estructural intradía entre LLY y su ecosistema sectorial, más que reacciones aisladas a eventos específicos.
+
+##Construcción del Modelo
+Se descargan las librerías readxl y xts. Por una parte readxl permite importar archivos de Excel en R, mientras que xts permite crear y manipular series de tiempo financieras.
+```{r}
+library(readxl)
+library(xts)
+```
+
+Con la función read_excel() se importan los datos desde archivos Excel (.xlsx) directamente a R.
+```{r}
+LLY_1  <- read_excel("LLY_1.xlsx")
+JNJ_1  <- read_excel("JNJ_1.xlsx")
+PFE_1  <- read_excel("PFE_1.xlsx")
+UNH_1  <- read_excel("UNH_1.xlsx")
+ABBV_1 <- read_excel("ABBV_1.xlsx")
+```
+
+Con la función as.POSIXct() se convierte la columna Exchange Date a un formato de fecha-hora real y se asigna la zona horaria correspondiente para trabajar correctamente con series de tiempo en R.
+```{r}
+LLY_1$`Exchange Date`  <- as.POSIXct(LLY_1$`Exchange Date`,  tz = "America/New_York")
+JNJ_1$`Exchange Date`  <- as.POSIXct(JNJ_1$`Exchange Date`,  tz = "America/New_York")
+PFE_1$`Exchange Date`  <- as.POSIXct(PFE_1$`Exchange Date`,  tz = "America/New_York")
+UNH_1$`Exchange Date`  <- as.POSIXct(UNH_1$`Exchange Date`,  tz = "America/New_York")
+ABBV_1$`Exchange Date` <- as.POSIXct(ABBV_1$`Exchange Date`, tz = "America/New_York")
+```
+
+Con la función xts() se convierte la columna Close en una serie de tiempo cuyo índice es la fecha-hora.
+```{r}
+lly_close  <- xts(LLY_1$Close,  order.by = LLY_1$`Exchange Date`)
+jnj_close  <- xts(JNJ_1$Close,  order.by = JNJ_1$`Exchange Date`)
+pfe_close  <- xts(PFE_1$Close,  order.by = PFE_1$`Exchange Date`)
+unh_close  <- xts(UNH_1$Close,  order.by = UNH_1$`Exchange Date`)
+abbv_close <- xts(ABBV_1$Close, order.by = ABBV_1$`Exchange Date`)
+```
+
+Con la función na.omit() se eliminan las observaciones faltantes en los precios, asegurando que los cálculos de rendimientos se realicen únicamente con datos completos y válidos.
+```{r}
+lly_close  <- na.omit(lly_close)
+jnj_close  <- na.omit(jnj_close)
+pfe_close  <- na.omit(pfe_close)
+unh_close  <- na.omit(unh_close)
+abbv_close <- na.omit(abbv_close)
+```
+
+Con la función diff(log()), se transforman los precios en rendimientos logarítmicos por minuto. Se crean nuevas variables con los rendimientos logarítmicos por minuto de cada acción.
+```{r}
+lly_ret  <- diff(log(lly_close))
+jnj_ret  <- diff(log(jnj_close))
+pfe_ret  <- diff(log(pfe_close))
+unh_ret  <- diff(log(unh_close))
+abbv_ret <- diff(log(abbv_close))
+```
+
+Con la función merge() se alinean todas las series de rendimientos y, mediante na.omit(), se eliminan las observaciones faltantes para conservar únicamente los minutos en los que todas las acciones tienen información disponible. Para ello, se crea la variable data_health1. Con la función colnames() se renombran las columnas para identificar claramente cada acción.
+```{r}
+data_health1 <- merge(lly_ret, jnj_ret, pfe_ret, unh_ret, abbv_ret)
+
+data_health1 <- na.omit(data_health1)
+
+colnames(data_health1) <- c("LLY","JNJ","PFE","UNH","ABBV")
+```
+
+###MULTICOLINEALIDAD
+
+##Matriz de Correlación
+Con la función cor se crea la matriz de correlaciones de data_health1. Se crea la variable cor_matrix3.
+```{r}
+cor_matrix3 <- cor(data_health1)
+cor_matrix3
+```
+
+##Mapa de Calor
+Se descarga ggcorrplot y se grafica el mapa de calor.
+```{r}
+library(ggcorrplot)
+ggcorrplot(cor_matrix3)
+```
+Interpretación: El mapa de calor presenta la matriz de correlaciones entre los rendimientos intradía con frecuencia de 1 minuto de LLY, JNJ, PFE, UNH y ABBV, durante el periodo analizado. En términos generales, se observan correlaciones positivas pero bajas entre la mayoría de las variables, lo cual es consistente con empresas que pertenecen al mismo sector defensivo de salud, pero que operan en segmentos distintos (farmacéuticas, biotecnología y seguros médicos).
+La mayor correlación se observa entre JNJ y PFE (0.1139), seguida por PFE y UNH (0.0931) y LLY y PFE (0.0912). Estos valores reflejan una relación positiva leve, coherente con empresas expuestas a factores comunes como regulación sanitaria, innovación farmacéutica y expectativas sobre gasto en salud. Sin embargo, estos niveles están muy lejos de valores críticos como 0.80 o superiores, por lo que no implican duplicación de información.
+La relación entre LLY y JNJ es de 0.0452, mientras que entre LLY y UNH es prácticamente nula (0.0061). Esto tiene sentido económico, ya que LLY y JNJ comparten exposición farmacéutica, pero UNH pertenece al segmento de aseguramiento médico, cuyo desempeño depende más de primas, costos médicos y regulación que de patentes o desarrollo de medicamentos.
+Por su parte, JNJ y UNH presentan una correlación ligeramente negativa (-0.0157), aunque cercana a cero, lo cual indica independencia estadística intradía. ABBV mantiene correlaciones bajas con todas las empresas, siendo la más alta con JNJ (0.0730), consistente con su exposición al mercado farmacéutico.
+Entre las variables independientes, ninguna correlación supera 0.12, lo que indica un nivel de asociación bajo incluso dentro del mismo sector. Esto reduce significativamente la probabilidad de multicolinealidad severa.
+En conclusión, aunque existe coherencia sectorial propia del bloque salud, las correlaciones se mantienen en rangos bajos, lo que sugiere que cada acción aporta información diferenciada dentro del modelo. No se observan indicios de multicolinealidad relevante a partir de la matriz de correlación. No obstante, para confirmar formalmente esta conclusión, es recomendable complementar el análisis con el cálculo del VIF en la regresión múltiple.
+
+Por lo tanto, se mantienen todas las variables independientes y se crea el modelo700.
+```{r}
+modelo700 <- lm(LLY ~ JNJ + PFE + UNH + ABBV, data = as.data.frame(data_health1))
+summary(modelo700)
+```
+
+##VIF
+Con la función vif se obtiene el VIF del modelo, el cual es una medida que se utiliza en regresión lineal para detectar multicolinealidad, es decir, si las variables independientes están demasiado correlacionadas entre sí. Se descarga la librería car.
+```{r}
+library(car)
+vif(modelo700)
+```
+Reglas prácticas VIF:
+VIF = 1 → no hay correlación con otras variables.
+VIF entre 1 y 5 → correlación baja/moderada (aceptable).
+VIF > 5 → problema de multicolinealidad.
+
+Interpretación: Los VIF obtenidos son JNJ (1.0187), PFE (1.0238), UNH (1.0103) y ABBV (1.0077), todos prácticamente iguales a 1.
+Esto confirma que no existe un problema de multicolinealidad en el modelo. Las variables independientes presentan niveles de correlación extremadamente bajos entre sí, lo que garantiza estabilidad en la estimación de los coeficientes y evita inflación en sus varianzas.
+En consecuencia, las pruebas de significancia individual son confiables y la interpretación económica del modelo es sólida. Esto respalda plenamente la validez estadística del modelo de regresión múltiple estimado.
+
+###HETEROCEDASTICIDAD
+
+##Residuales
+Se crea la variable residuales_modelo700 para obtener los residuales, en este caso del modelo 700.
+```{r}
+residuales_modelo700 <- modelo700$residuals
+```
+
+De acuerdo al número de observaciones se generará un vector columna que contenga a los números de cada observación, para ello se crea la variable observaciones_modelo700.
+```{r}
+observaciones_modelo700 <- c(1:3432)
+```
+
+Con la función plot, se genera un gráfico de serie: observaciones (x) vs residuales (y).
+```{r}
+plot(observaciones_modelo700, residuales_modelo700, type = "l")
+```
+Interpretación: El gráfico de residuos del modelo700 muestra que los errores se mantienen centrados alrededor de cero durante la mayor parte del periodo, lo que indica que el modelo no presenta un sesgo sistemático en sus estimaciones. No se observan tendencias persistentes ni patrones estructurales claros, lo que sugiere que la especificación funcional es adecuada.
+Sin embargo, se identifican varios picos pronunciados en distintos momentos de la muestra, donde la magnitud de los residuos aumenta de forma considerable, alcanzando valores cercanos a ±0.025. Estos episodios reflejan periodos de mayor volatilidad intradía, característicos de datos financieros de alta frecuencia.
+La presencia de estos clusters de mayor dispersión sugiere que la varianza del error podría no ser completamente constante a lo largo del tiempo. Aunque el modelo luce estable en promedio, este comportamiento puede ser indicio de heterocedasticidad. Por ello, es recomendable complementar el análisis visual con pruebas formales como Breusch-Pagan (BP), Goldfeld-Quandt (GQ) y White para confirmar si la varianza de los errores es constante.
+
+Se elevan al cuadrado los residuales del modelo700, y se crea la variable cuadres_modelo700.
+```{r}
+cuadres_modelo700 = residuales_modelo700^2
+```
+
+Con la función plot se genera el gráfico de dispersión de los residuos al cuadrado del modelo (en el eje x) y los rendimientos logarítmicos de CMI (en el eje y). Este gráfico permite analizar si existe algún patrón sistemático entre la magnitud del error y la variable dependiente, lo cual podría sugerir problemas de heterocedasticidad.
+```{r}
+plot(cuadres_modelo700, data_health1$LLY)
+```
+Interpretación: La mayoría de los residuos se concentran cerca del origen, lo que indica que el modelo presenta errores pequeños y relativamente estables en condiciones normales. Sin embargo, se observan algunos puntos alejados hacia la derecha, que reflejan episodios de mayor error asociados a picos de volatilidad intradía.
+Aunque no se aprecia un patrón claramente sistemático, la presencia de estos valores atípicos sugiere posible heterocedasticidad leve. Por ello, es recomendable confirmarlo mediante pruebas formales como Breusch-Pagan, Goldfeld-Quandt o White.
+
+##BP Test
+Se descarga la librería lmtest y se utiliza la función bptest para realizar la prueba de Breusch–Pagan y así evaluar si el modelo presenta heterocedasticidad.
+```{r}
+library(lmtest)
+bptest(modelo700)
+```
+Interpretación: El test de Breusch–Pagan se utiliza para detectar la presencia de heterocedasticidad en un modelo de regresión lineal.
+- H₀ (nula): Los errores son homocedásticos (varianza constante).
+- H₁ (alternativa): Existe heterocedasticidad (varianza no constante).
+En este caso, el estadístico es BP = 9.412 con df = 4 y un p-value = 0.05159. Este valor es ligeramente superior al nivel de significancia del 5%, pero cercano a él.
+Por lo tanto, se acepta la hipótesis nula al 5%, aunque existe evidencia marginal de heterocedasticidad al 10%. En otras palabras, el modelo700 no presenta evidencia sólida de heterocedasticidad bajo criterios estrictos, pero sí muestra una posible señal leve. 
+
+##GQ Test
+Se descarga la librería lmtest y se utiliza la función gqtest para realizar la prueba de Goldfeld–Quandt, y así evaluar si el modelo presenta heterocedasticidad.
+```{r}
+library(lmtest)
+gqtest(modelo700, order.by = ~ LLY, data = as.data.frame(data_health1))
+```
+Interpretación: El test de Goldfeld–Quandt se utiliza para detectar heterocedasticidad comparando la varianza de los errores entre dos segmentos de la muestra.
+- H₀ (nula): La varianza de los errores es constante (homocedasticidad).
+- H₁ (alternativa): La varianza aumenta del segmento 1 al 2 (heterocedasticidad).
+En este caso, el estadístico es GQ = 1.2837, con df1 = 1711 y df2 = 1711, y un p-value = 1.252e-07, el cual es extremadamente pequeño.
+Por lo tanto, se rechaza la hipótesis nula de homocedasticidad. En otras palabras, existe evidencia estadísticamente significativa de que la varianza de los errores aumenta entre los segmentos analizados en el modelo700, confirmando la presencia de heterocedasticidad.
+
+##W Test
+Se descarga la librería lmtest y se utiliza la función bptest para realizar la prueba de White, con el objetivo de evaluar si el modelo presenta heterocedasticidad. Esta prueba permite analizar si la varianza de los errores es constante o si depende de los valores ajustados y sus términos cuadráticos, proporcionando así una verificación más general sobre la presencia de heterocedasticidad en el modelo de regresión.
+```{r}
+library(lmtest)
+
+bptest(modelo700, ~ JNJ + PFE + UNH + ABBV + I(JNJ^2) + I(PFE^2) + I(UNH^2) + I(ABBV^2), data = as.data.frame(data_health1))
+```
+Interpretación: El test de White se utiliza para detectar heterocedasticidad en un modelo de regresión.
+- H₀ (nula): Los errores son homocedásticos (varianza constante).
+- H₁ (alternativa): Existe heterocedasticidad (varianza no constante).
+En este caso, el estadístico es BP = 16.211 con df = 8 y un p-value = 0.03945, el cual es menor al nivel de significancia del 5%.
+Por lo tanto, se rechaza la hipótesis nula de homocedasticidad al 5%. En otras palabras, existe evidencia estadísticamente significativa de heterocedasticidad en el modelo700 según la prueba de White.
+
+En conjunto, la prueba de Breusch–Pagan muestra evidencia marginal de heterocedasticidad (p = 0.0516, significativa al 10%), mientras que tanto la prueba de Goldfeld–Quandt (p = 1.252e-07) como la prueba de White (p = 0.03945) arrojan resultados estadísticamente significativos al 5%. Por lo tanto, considerando la evidencia global de las tres pruebas, se concluye que el modelo700 presenta heterocedasticidad.
+
+##Corrección de Heterocedasticidad
+
+#Mínimos Cuadrados Generalizados 
+Para corregir el problema de heterocedasticidad detectado en el modelo, se aplica el método de Generalized Least Squares (GLS) en su forma factible (FGLS). En primer lugar, se estima el modelo original mediante Mínimos Cuadrados Ordinarios (OLS) para obtener los residuos. Posteriormente, se construye un modelo auxiliar donde se regresa el logaritmo de los residuos al cuadrado contra las variables independientes, con el objetivo de estimar la estructura de la varianza del error. A partir de esta estimación se calculan pesos inversamente proporcionales a la varianza estimada. Finalmente, se re-estima el modelo utilizando estos pesos, lo que permite ajustar las observaciones con mayor varianza y corregir la heterocedasticidad. De esta manera, aunque los coeficientes pueden no cambiar sustancialmente, los errores estándar se ajustan, garantizando inferencias estadísticas más confiables y consistentes.
+```{r}
+modelo700 <- lm(LLY ~ JNJ + PFE + UNH + ABBV, data = as.data.frame(data_health1))
+
+resi3 <- resid(modelo700)
+
+varfunc.ols3 <- lm(log(resi3^2) ~ JNJ + PFE + UNH + ABBV, data = as.data.frame(data_health1))
+
+varfunc3 <- exp(fitted(varfunc.ols3))
+
+modelo700_gls <- lm(LLY ~ JNJ + PFE + UNH + ABBV, data = as.data.frame(data_health1), weights = 1/sqrt(varfunc3))
+
+summary(modelo700_gls)
+```
+Interpretación: Tras aplicar GLS para corregir la heterocedasticidad, el modelo sigue siendo globalmente significativo (F-statistic = 7.595, p = 4.34e-06), lo que indica que, en conjunto, las variables del sector salud explican de manera estadísticamente relevante los rendimientos logarítmicos de LLY.
+A nivel individual, PFE (0.0903) es la variable con mayor impacto y altamente significativa (p < 0.001), seguida por JNJ (0.0573), significativa al 5%. Esto confirma la relación de LLY con otras farmacéuticas de gran capitalización, reflejando exposición común a factores como innovación, regulación y expectativas del mercado farmacéutico.
+En cambio, UNH (-0.0063) no es estadísticamente significativa, lo que sugiere que el segmento de aseguramiento médico no tuvo un efecto directo relevante sobre LLY en el periodo analizado. Asimismo, ABBV (0.0217) tampoco resulta significativa, indicando que su dinámica intradía no explica de manera robusta los movimientos de LLY.
+El R² ajustado de 0.0076 es bajo, lo cual es consistente con datos financieros intradía, donde gran parte de la variación responde a ruido de mercado y shocks idiosincráticos. En general, el método GLS mantiene la coherencia económica del modelo y corrige los errores estándar ante la heterocedasticidad detectada, permitiendo inferencias más confiables.
+Aunque UNH y ABBV no resultaron estadísticamente significativas, no existe evidencia de multicolinealidad ni problemas de especificación. Dado su fundamento económico dentro del sector salud, se decidió mantenerlas en el modelo para preservar coherencia sectorial.
+
+###AUTOCORRELACIÓN
+
+Se usa dynlm para estimar un AR(1) y verificar si hay autocorrelación de primer orden en los rendimientos de LLY.
+```{r}
+library(dynlm)
+
+serie_lly <- ts(data_health1$LLY)
+
+reg1_lly <- dynlm(serie_lly ~ L(serie_lly))
+
+summary(reg1_lly)
+```
+Interpretación: El coeficiente del rezago es -0.0606 con un p-value = 0.000387, lo que indica que es estadísticamente significativo al 1%. Esto confirma la existencia de autocorrelación de primer orden en los rendimientos de LLY. El signo negativo sugiere un efecto de reversión de corto plazo, es decir, movimientos positivos tienden a ser seguidos por ajustes negativos en el siguiente periodo.
+Sin embargo, el R² = 0.0037 es muy bajo, lo que implica que el rendimiento pasado explica apenas un 0.37% de la variación del rendimiento actual. Aunque el efecto es estadísticamente significativo, su magnitud económica es pequeña.
+En términos prácticos, existe evidencia estadística de autocorrelación de primer orden en LLY, pero el impacto es reducido, lo cual es consistente con el comportamiento típico de rendimientos financieros de alta frecuencia, donde la dependencia temporal suele ser limitada.
+
+Por lo tanto, para garantizar inferencias robustas, es recomendable utilizar errores estándar corregidos por autocorrelación con prueba Newey–West. Se cargan las librerías lmtest y sandwich.
+```{r}
+library(lmtest)
+library(sandwich)
+```
+
+Se estimaron los coeficientes del modelo utilizando errores estándar robustos de Newey-West con un rezago de 1 periodo, con el objetivo de corregir posibles problemas de autocorrelación en los residuos. Esta corrección permite obtener inferencias estadísticas más consistentes sin alterar los coeficientes estimados por MCO.
+```{r}
+coeftest(modelo700, vcov = NeweyWest(modelo700, lag = 1, prewhite = FALSE))
+```
+Interpretación:En conclusión, después de aplicar Newey–West, PFE permanece como el único determinante robusto de los rendimientos de LLY, mientras que el resto de las variables no muestran un efecto estadísticamente sólido. Esto fortalece la validez de la inferencia y proporciona una estimación más conservadora y confiable del modelo. Sin embargo, se mantienen las demás variables por su relevancia económica dentro del sector salud y para preservar la coherencia estructural del modelo.
+
+###Conclusión
+Con base en las pruebas realizadas para el modelo con LLY como variable dependiente, se obtienen los siguientes resultados generales:
+
+Multicolinealidad: Los VIF se encuentran prácticamente en 1 (entre 1.007 y 1.024), lo que indica ausencia de colinealidad relevante entre JNJ, PFE, UNH y ABBV. Cada acción aporta información diferenciada dentro del modelo, por lo que no es necesario eliminar variables por problemas de correlación interna.
+
+Heterocedasticidad: La prueba de Breusch–Pagan mostró evidencia marginal, mientras que Goldfeld–Quandt y White resultaron estadísticamente significativas. Esto confirma la presencia de heterocedasticidad. Sin embargo, el modelo fue corregido mediante GLS y posteriormente validado con errores estándar Newey–West, obteniendo coeficientes más robustos y confiables. Por lo tanto, el problema fue adecuadamente ajustado.
+
+Autocorrelación: El modelo AR(1) detectó autocorrelación de primer orden estadísticamente significativa, aunque con magnitud económica reducida (R² ≈ 0.0037). Este comportamiento es consistente con dinámicas de corto plazo propias de rendimientos financieros intradía.
+
+En conjunto, tras aplicar las correcciones correspondientes, el modelo es estadísticamente válido. No presenta problemas de multicolinealidad y los efectos de heterocedasticidad y autocorrelación fueron adecuadamente tratados. Por ello, no es necesario eliminar variables ni reespecificar el modelo, manteniendo coherencia económica dentro del bloque sectorial salud.
+
+###ESTRATEGIA DE PORTAFOLIO
+El portafolio quedaría enfocado en el bloque farmacéutico del sector salud, con mayor peso en las empresas que demostraron mayor influencia estadística sobre LLY, particularmente PFE, que fue la variable más robusta incluso tras la corrección Newey–West, y en segundo plano JNJ, que mostró significancia marginal y coherencia sectorial.
+Las empresas UNH y ABBV, al no resultar estadísticamente significativas, se mantendrían con menor peso como componentes de diversificación dentro del sector salud, reduciendo riesgo sin concentrar excesivamente la exposición.
+Para ello se comprarán 3000 acciones de LLY y PFE; 2000 acciones de JNJ; y 1000 acciones de UNH y ABBV. 
+Esta asignación permite capturar los movimientos del núcleo farmacéutico, que mostró mayor relación estadística, manteniendo diversificación dentro del sector salud mediante exposición complementaria a aseguramiento médico y biotecnología.
